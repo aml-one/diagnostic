@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../diagnostics/app_log.dart';
+
 const kDeepSeekBaseUrl = 'https://api.deepseek.com';
 const kDeepSeekReasonerModel = 'deepseek-reasoner';
 const kDeepSeekChatModel = 'deepseek-chat';
@@ -82,10 +84,15 @@ class DeepSeekClient {
     } on DeepSeekException {
       rethrow;
     } catch (err) {
+      AppLog.e('deepseek', 'DeepSeek call failed: network', err);
       throw DeepSeekException(_scrub('Could not reach DeepSeek. $err', key));
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      AppLog.e(
+        'deepseek',
+        'DeepSeek call failed: HTTP ${response.statusCode}',
+      );
       throw DeepSeekException(
         _httpMessage(response.statusCode, response.body, key),
         statusCode: response.statusCode,
@@ -121,6 +128,7 @@ class DeepSeekClient {
     } on DeepSeekException {
       rethrow;
     } catch (err) {
+      AppLog.e('deepseek', 'DeepSeek call failed: parse', err);
       throw DeepSeekException(
         _scrub('Could not read the DeepSeek reply. $err', key),
       );

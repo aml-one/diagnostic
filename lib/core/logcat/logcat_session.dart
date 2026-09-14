@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../adb/adb_client.dart';
+import '../diagnostics/app_log.dart';
 import 'anr_detector.dart';
 import 'logcat_parser.dart';
 
@@ -47,6 +48,10 @@ class LogcatSession {
     _serial = serial;
     _errorMessage = null;
     _setState(LogcatConnectionState.starting);
+    AppLog.i(
+      'logcat',
+      'session start serial=$serial pid=${pid ?? 'all'}',
+    );
     try {
       final process = await _client.startLogcat(
         serial,
@@ -114,6 +119,7 @@ class LogcatSession {
     if (flushed != null && !_anrs.isClosed) _anrs.add(flushed);
     if (_state == LogcatConnectionState.watching ||
         _state == LogcatConnectionState.starting) {
+      AppLog.i('logcat', 'session stop serial=$_serial');
       _setState(LogcatConnectionState.stopped);
     }
   }
@@ -133,6 +139,7 @@ class LogcatSession {
 
   void _fail(String message) {
     _errorMessage = message;
+    AppLog.e('logcat', 'stream error: $message');
     _setState(LogcatConnectionState.error);
   }
 

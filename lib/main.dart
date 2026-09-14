@@ -1,12 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/diagnostics/app_log.dart';
 import 'screens/home_screen.dart';
 import 'theme/desktop_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: DiagnosticApp()));
+  FlutterError.onError = (details) {
+    AppLog.e(
+      'flutter',
+      details.exceptionAsString(),
+      details.exception,
+      details.stack,
+    );
+    FlutterError.presentError(details);
+  };
+  runZonedGuarded(() {
+    runApp(const ProviderScope(child: DiagnosticApp()));
+  }, (error, stack) {
+    AppLog.e('zone', '$error', error, stack);
+  });
 }
 
 class DiagnosticApp extends StatelessWidget {

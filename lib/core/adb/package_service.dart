@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../diagnostics/app_log.dart';
 import 'adb_client.dart';
 
 /// Third-party (or all) package installed on a device.
@@ -97,13 +98,22 @@ class PackageService {
       );
       final fromBrief = parseResolveActivityBrief(brief, packageName);
       if (fromBrief != null) return fromBrief;
-    } on AdbException {
-      // Older images lack `cmd package`; dumpsys still works.
+    } on AdbException catch (err) {
+      AppLog.w(
+        'package',
+        'resolve-activity failed for $packageName',
+        err,
+      );
     }
     try {
       final dump = await _client.shell(serial, 'dumpsys package $packageName');
       return parseLaunchActivityFromDumpsys(dump, packageName);
-    } on AdbException {
+    } on AdbException catch (err) {
+      AppLog.w(
+        'package',
+        'could not resolve launch activity for $packageName',
+        err,
+      );
       return null;
     }
   }
@@ -141,6 +151,7 @@ class PackageService {
             )
             .timeout(const Duration(seconds: 20));
       } catch (err) {
+        AppLog.e('package', 'could not start $packageName', err);
         throw AdbException('Could not start $packageName. $err');
       }
     }
@@ -153,6 +164,9 @@ class PackageService {
         pid = await pidOf(serial, packageName);
         if (pid != null) break;
       }
+    }
+    if (pid == null) {
+      AppLog.w('package', 'could not find PID for $packageName');
     }
 
     return AppLaunchResult(

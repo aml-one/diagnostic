@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/ai/deepseek_client.dart';
 import '../core/app_version.dart';
+import '../core/diagnostics/app_log.dart';
+import '../core/diagnostics/app_log_export.dart';
 import '../services/settings_store.dart';
 import '../state/deepseek_providers.dart';
 import '../theme/desktop_theme.dart';
@@ -26,6 +28,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _saveError;
   String? _testMessage;
   bool _testOk = false;
+  bool _logSaving = false;
+  String? _logSaveMessage;
+  bool _logSaveOk = false;
 
   @override
   void initState() {
@@ -92,6 +97,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             : 'Could not test the key.';
       });
     }
+  }
+
+  Future<void> _saveLog() async {
+    setState(() {
+      _logSaving = true;
+      _logSaveMessage = null;
+      _logSaveOk = false;
+    });
+    try {
+      final file = await AppLogExport.writeToFile();
+      if (!mounted) return;
+      setState(() {
+        _logSaving = false;
+        _logSaveOk = true;
+        _logSaveMessage = 'Saved to ${file.path}';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _logSaving = false;
+        _logSaveOk = false;
+        _logSaveMessage = 'Could not save the log.';
+      });
+    }
+  }
+
+  Future<void> _copyLog() async {
+    final count = AppLog.snapshot().length;
+    await Clipboard.setData(ClipboardData(text: AppLogExport.renderText()));
+    if (!mounted) return;
+    setState(() {
+      _logSaveOk = true;
+      _logSaveMessage = 'Copied $count entries.';
+    });
   }
 
   @override
@@ -232,6 +271,97 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      const DesktopSectionLabel(label: 'Troubleshooting'),
+                      const SizedBox(height: 6),
+                      ValueListenableBuilder<int>(
+                        valueListenable: AppLog.version,
+                        builder: (context, _, _) {
+                          final entries = AppLog.snapshot();
+                          final preview = entries.length <= 12
+                              ? entries
+                              : entries.sublist(entries.length - 12);
+                          return DesktopPanel(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                DesktopPanelHeader(
+                                  icon: Icons.bug_report_rounded,
+                                  accent: AmlTheme.sky,
+                                  title: 'App log',
+                                  subtitle:
+                                      'Recent events and errors from this app. '
+                                      'Save or copy it if something looks '
+                                      'wrong, so you can hand it to an AI '
+                                      'agent for help.',
+                                  trailing: DesktopTag(
+                                    label: '${entries.length} entries',
+                                    color: AmlTheme.sky,
+                                    mono: true,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                if (entries.isEmpty)
+                                  Text(
+                                    'No events yet.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      height: 1.3,
+                                      fontWeight: FontWeight.w600,
+                                      color: muted,
+                                    ),
+                                  )
+                                else
+                                  DesktopMonoBlock(
+                                    text: AppLogExport.renderText(
+                                      entries: preview,
+                                    ),
+                                    maxHeight: 180,
+                                  ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    FilledButton.icon(
+                                      onPressed: _logSaving ? null : _saveLog,
+                                      icon: const Icon(
+                                        Icons.save_alt_rounded,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        _logSaving
+                                            ? 'Saving…'
+                                            : 'Save log to file',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton.icon(
+                                      onPressed: _logSaving ? null : _copyLog,
+                                      icon: const Icon(
+                                        Icons.copy_rounded,
+                                        size: 16,
+                                      ),
+                                      label: const Text('Copy to clipboard'),
+                                    ),
+                                    DesktopIconAction(
+                                      icon: Icons.delete_outline_rounded,
+                                      tooltip: 'Clear log',
+                                      onPressed: AppLog.clear,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _StatusLine(
+                                        message: _logSaveMessage,
+                                        ok: _logSaveOk,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

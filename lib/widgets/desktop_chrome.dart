@@ -21,7 +21,7 @@ class DesktopContent extends StatelessWidget {
       alignment: Alignment.topLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
-        child: child,
+        child: SizedBox(width: double.infinity, child: child),
       ),
     );
   }
@@ -50,21 +50,24 @@ class DesktopPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = tint;
-    return Material(
-      color: accent == null
-          ? Desk.panelFill(context)
-          : accent.withValues(alpha: AmlTheme.isDark(context) ? 0.18 : 0.13),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(radius),
-        side: BorderSide(
-          color: accent == null
-              ? Desk.hairline(context)
-              : accent.withValues(alpha: 0.38),
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: accent == null
+            ? Desk.panelFill(context)
+            : accent.withValues(alpha: AmlTheme.isDark(context) ? 0.18 : 0.13),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+          side: BorderSide(
+            color: accent == null
+                ? Desk.hairline(context)
+                : accent.withValues(alpha: 0.38),
+          ),
         ),
+        clipBehavior: clip ? Clip.antiAlias : Clip.none,
+        child: Padding(padding: padding, child: child),
       ),
-      clipBehavior: clip ? Clip.antiAlias : Clip.none,
-      child: Padding(padding: padding, child: child),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../diagnostics/app_log.dart';
+
 /// Connection state reported by `adb devices`.
 enum AdbDeviceState {
   device,
@@ -115,9 +117,13 @@ class AdbClient {
     if (path == null) return const [];
     try {
       final result = await run(const ['devices', '-l']);
-      if (result.exitCode != 0) return const [];
+      if (result.exitCode != 0) {
+        AppLog.w('adb', 'command failed: devices -l (exit ${result.exitCode})');
+        return const [];
+      }
       return parseDevicesOutput(result.stdout.toString());
-    } on Object {
+    } on Object catch (err) {
+      AppLog.w('adb', 'listDevices failed', err);
       return const [];
     }
   }
@@ -244,17 +250,27 @@ class AdbClient {
   Future<ProcessResult> run(List<String> args, {String? serial}) async {
     final path = await resolveExecutable();
     if (path == null) {
+      AppLog.w('adb', 'command failed: adb not found on PATH');
       throw AdbException(
         'adb was not found on PATH. Install Android platform-tools.',
       );
     }
     try {
-      return Process.run(
+      final result = await Process.run(
         path,
         _withSerial(args, serial),
         runInShell: false,
       );
+      if (result.exitCode != 0) {
+        AppLog.w(
+          'adb',
+          'command failed: ${_withSerial(args, serial).join(' ')} '
+          '(exit ${result.exitCode})',
+        );
+      }
+      return result;
     } on ProcessException catch (err) {
+      AppLog.w('adb', 'command failed: ${args.join(' ')}', err);
       throw AdbException(err.message);
     }
   }
@@ -262,6 +278,7 @@ class AdbClient {
   Future<Process> _start(List<String> args, {String? serial}) async {
     final path = await resolveExecutable();
     if (path == null) {
+      AppLog.w('adb', 'command failed: adb not found on PATH');
       throw AdbException(
         'adb was not found on PATH. Install Android platform-tools.',
       );
@@ -273,6 +290,7 @@ class AdbClient {
         runInShell: false,
       );
     } on ProcessException catch (err) {
+      AppLog.w('adb', 'command failed: ${args.join(' ')}', err);
       throw AdbException(err.message);
     }
   }

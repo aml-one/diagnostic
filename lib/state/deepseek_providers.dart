@@ -4,6 +4,7 @@ import '../core/ai/deepseek_client.dart';
 import '../core/ai/deepseek_diagnosis.dart';
 import '../core/ai/evidence_bundle.dart';
 import '../core/diagnosis/diagnosis_report.dart';
+import '../core/diagnostics/app_log.dart';
 import '../services/settings_store.dart';
 
 final settingsStoreProvider = Provider<SettingsStore>((ref) => SettingsStore());
@@ -110,6 +111,7 @@ class DeepSeekDiagnosisController extends Notifier<DeepSeekDiagnosisView> {
       ];
       state = DeepSeekDiagnosisView(diagnosis: reply);
     } catch (err) {
+      AppLog.e('deepseek', 'DeepSeek call failed: ${_publicError(err)}', err);
       _history = [];
       state = DeepSeekDiagnosisView(error: _publicError(err));
     }
@@ -163,6 +165,7 @@ class DeepSeekDiagnosisController extends Notifier<DeepSeekDiagnosisView> {
         ],
       );
     } catch (err) {
+      AppLog.e('deepseek', 'DeepSeek call failed: ${_publicError(err)}', err);
       state = DeepSeekDiagnosisView(
         diagnosis: previous.diagnosis,
         followUps: previous.followUps,

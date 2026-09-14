@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/bugreport/anr_trace_parser.dart';
 import '../core/bugreport/bugreport_service.dart';
 import '../core/diagnosis/diagnosis_report.dart';
+import '../core/diagnostics/app_log.dart';
 import '../core/logcat/anr_detector.dart';
 import '../core/logcat/logcat_parser.dart';
 import '../core/perf/dumpsys_snapshot.dart';
@@ -190,6 +191,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
         startedAt: startedAt,
       ),
     );
+    AppLog.i('diagnose', 'step: scanning logcat');
 
     final adb = ref.read(adbClientProvider);
 
@@ -208,6 +210,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
             progressText: 'Capturing dumpsys gfx / mem / cpu…',
           ),
         );
+        AppLog.i('diagnose', 'step: dumpsys');
         try {
           final snapshot = DumpsysSnapshot(adb: adb);
           final results = await Future.wait<Object>([
@@ -218,7 +221,8 @@ class DiagnosisController extends Notifier<DiagnosisState> {
           gfx = results[0] as GfxInfoSnapshot;
           mem = results[1] as MemInfoSnapshot;
           cpu = results[2] as CpuInfoSnapshot;
-        } on Object {
+        } on Object catch (err) {
+          AppLog.w('diagnose', 'dumpsys failed', err);
           // Non-fatal — the bugreport dumpstate excerpt still carries gfx/mem
           // text even when a live dumpsys call fails or times out.
         }
@@ -231,6 +235,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
           progressText: 'Starting bugreport…',
         ),
       );
+      AppLog.i('diagnose', 'step: bugreport');
       final bugreportResult = await BugreportService(adb: adb).capture(
         serial: serial,
         onProgress: (status) {
@@ -247,6 +252,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
           progressText: 'Parsing ANR traces…',
         ),
       );
+      AppLog.i('diagnose', 'step: parsing ANR traces');
       final bugreportParse = await AnrTraceParser.parseExtractDir(
         bugreportResult.extractDir,
         packageFilter: pkg,
@@ -267,6 +273,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
             progressText: 'Recording a short Perfetto trace…',
           ),
         );
+        AppLog.i('diagnose', 'step: perfetto');
         try {
           perfettoResult = await PerfettoService(adb: adb).captureAndAnalyze(
             serial: serial,
@@ -281,8 +288,10 @@ class DiagnosisController extends Notifier<DiagnosisState> {
             },
           );
         } on PerfettoUnavailableException catch (err) {
+          AppLog.w('diagnose', 'perfetto unavailable: ${err.message}', err);
           _emit(state.copyWith(progressText: err.message));
-        } on Object {
+        } on Object catch (err) {
+          AppLog.w('diagnose', 'perfetto capture failed', err);
           _emit(state.copyWith(progressText: 'Perfetto capture skipped.'));
         }
         if (_bail()) return;
@@ -294,6 +303,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
           progressText: 'Assembling report…',
         ),
       );
+      AppLog.i('diagnose', 'step: assembling');
       final preferredEvent =
           seedEvent ?? (anrEvents.isEmpty ? null : anrEvents.first);
       final report = DiagnosisReport.assemble(
@@ -317,6 +327,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
         ),
       );
     } catch (err) {
+      AppLog.e('diagnose', 'pipeline failed at ${state.step.name}', err);
       _emit(
         state.copyWith(
           step: DiagnosisStep.failed,
