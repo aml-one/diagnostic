@@ -1,0 +1,20 @@
+---
+description: AmL Diagnostic is in-house only — never AmL One store
+alwaysApply: true
+---
+
+# AmL Diagnostic is never a store app
+
+AmL Diagnostic is a **local in-house** Windows tool. It will **never** ship on
+AmL One, the community shelf, downloads.aml.one, or Frankfurt OTA.
+
+```
+❌ OFFICIAL_LISTINGS / catalog.ts row for Diagnostic
+❌ Store icon, blurb, or app-info for Diagnostic
+❌ POST /api/publish/android (or any store publish API)
+❌ OTA manifests, version.json, or a downloads page
+❌ Treat "publish" / "build the app" as a store or OTA release
+```
+
+`publish` / `build the app` for this repo is local build + `graphify update .`
++ GitHub only. See `publish-workflow.mdc`.

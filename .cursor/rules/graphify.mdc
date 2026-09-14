@@ -1,0 +1,20 @@
+---
+description: Graphify for AmL Diagnostic only — never MessageMe
+alwaysApply: true
+---
+
+# Graphify — AmL Diagnostic (`diagnostic`)
+
+Use this graph **only** when the task is AmL Diagnostic. Never run `graphify` in MessageMe (`messageme`) for Diagnostic work.
+
+Repo root: `C:\Users\ambru\source\repos\aml-systems\diagnostic`
+
+```powershell
+Set-Location 'C:\Users\ambru\source\repos\aml-systems\diagnostic'
+graphify query "<question>"
+graphify path "<A>" "<B>"
+graphify explain "<concept>"
+graphify update .
+```
+
+If `graphify-out/graph.json` is missing, run `graphify .` **here**. After Diagnostic code changes: `graphify update .` from this root.

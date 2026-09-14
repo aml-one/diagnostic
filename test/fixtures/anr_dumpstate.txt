@@ -1,0 +1,58 @@
+========================================================
+== dumpstate: 2026-09-14 14:06:22
+========================================================
+
+------ MEMORY INFO ------
+Total RAM: 11421MB (status normal)
+ Free RAM: 2345MB
+ Used RAM: 8900MB
+     Lost: 12MB
+
+------ CPU INFO ------
+Load: 4.52 / 3.10 / 2.21
+CPU usage from 21834ms to 28847ms ago (2026-09-14 14:06:15.100 to 14:06:22.113):
+  48% 4321/one.aml.messageme: 30% user + 18% kernel / faults: 123 minor 1 major
+  12% 1000/system_server: 8% user + 4% kernel
+  4.2% 889/surfaceflinger: 3% user + 1.2% kernel
+
+------ GFXINFO (one.aml.messageme) ------
+** Graphics info for pid 4321 [one.aml.messageme] **
+Total frames rendered: 500
+Janky frames: 42 (8.40%)
+50th percentile: 8ms
+90th percentile: 16ms
+
+------ DUMP OF SERVICE activity ------
+ACTIVITY MANAGER ANR HISTORY (dumpsys activity anr)
+  AnrRecord:
+    ANR in one.aml.messageme (one.aml.messageme/.MainActivity)
+    PID: 4321
+    Reason: Input dispatching timed out (Waiting because the touched window has not finished processing the input events)
+    time=2026-09-14 14:06:22.123
+
+Subject: Input dispatching timed out (Waiting because the touched window has not finished processing the input events)
+Process: one.aml.messageme
+Package: one.aml.messageme
+
+----- pid 4321 at 2026-09-14 14:06:22.123 -----
+Cmd line: one.aml.messageme
+
+DALVIK THREADS (12):
+"main" prio=5 tid=1 Native
+  | group="main" sCount=1 dsCount=0 flags=1 obj=0x12 self=0x7a00
+  | sysTid=4321 nice=-10 cgrp=foreground sched=0/0 handle=0x7fff
+  at android.os.MessageQueue.nativePollOnce(Native method)
+  at android.os.MessageQueue.next(MessageQueue.java:335)
+  - waiting to lock <0x0ebc> (a java.lang.Object) held by tid=12
+  at android.os.Looper.loop(Looper.java:183)
+  at android.app.ActivityThread.main(ActivityThread.java:7656)
+
+"RenderThread" prio=5 tid=12 Native
+  | group="main" sCount=1 sysTid=4390
+  at android.graphics.HardwareRenderer.nSyncAndDrawFrame(Native method)
+  - locked <0x0ebc> (a java.lang.Object)
+  at android.view.ThreadedRenderer.draw(ThreadedRenderer.java:120)
+
+----- end 4321 -----
+
+------ 0.123s was the duration of dumpsys activity ------

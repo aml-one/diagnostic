@@ -1,0 +1,24 @@
+---
+description: AmL Diagnostic agent rules
+alwaysApply: true
+---
+
+# AmL Diagnostic
+
+Start **every** response with exactly: `[AmL] `
+
+AmL Diagnostic is an in-house Windows Flutter tool for Android ADB ANR and
+performance diagnosis. Pull bugreports and traces over adb, unzip locally,
+summarize with DeepSeek, open Perfetto.
+
+**In-house only.** It never goes on AmL One, downloads.aml.one, or any public
+shelf. Local Windows exe for studio use. A **publish** ask here means graphify
++ GitHub, never a store listing.
+
+- Windows holds `Global\AmLDiagnosticSingleInstance`. A second launch focuses
+  the existing window and exits. Do not start extra copies when rebuilding —
+  stop the running exe first.
+- Never commit DeepSeek API keys, `.env`, or Windows Credential Manager dumps.
+- After code changes: `graphify update .` in this repo
+  (`C:\Users\ambru\source\repos\aml-systems\diagnostic`). Never run graphify in
+  MessageMe for Diagnostic work.
