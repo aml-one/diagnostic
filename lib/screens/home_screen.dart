@@ -7,7 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/adb/adb_client.dart';
 import '../state/adb_providers.dart';
+import '../state/device_names_provider.dart';
 import '../state/logcat_providers.dart';
+import '../theme/desktop_theme.dart';
+import '../widgets/desktop_chrome.dart';
 import 'package_picker_screen.dart';
 import 'settings_screen.dart';
 
@@ -35,12 +38,24 @@ class HomeScreen extends ConsumerWidget {
       }
     });
 
+    final deviceCount = devices.valueOrNull?.length ?? 0;
+
     return Scaffold(
       backgroundColor: AmlTheme.isDark(context)
           ? AmlTheme.darkBg
           : kSettingsPageBackground,
       appBar: AppBar(
-        title: const Text('AmL Diagnostic'),
+        titleSpacing: 16,
+        toolbarHeight: 48,
+        title: Text(
+          'AmL Diagnostic',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.1,
+            color: ink,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         foregroundColor: ink,
         surfaceTintColor: Colors.transparent,
@@ -48,22 +63,25 @@ class HomeScreen extends ConsumerWidget {
         actions: [
           if (session.anrCount > 0)
             Padding(
-              padding: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.only(right: 8),
               child: Center(
-                child: _AnrBadge(count: session.anrCount),
+                child: DesktopTag(
+                  label: '${session.anrCount} ANR',
+                  color: AmlTheme.pink,
+                  icon: Icons.warning_amber_rounded,
+                ),
               ),
             ),
-          IconButton(
+          DesktopIconAction(
+            icon: Icons.settings_rounded,
             tooltip: 'Settings',
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SettingsScreen(),
-                ),
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
               );
             },
-            icon: const Icon(Icons.settings_rounded),
           ),
+          const SizedBox(width: 10),
         ],
       ),
       body: Stack(
@@ -71,63 +89,59 @@ class HomeScreen extends ConsumerWidget {
           const Positioned.fill(child: SettingsAmbientBackground()),
           Positioned.fill(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
               children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _AdbStatusCard(adb: adb),
-                        const SizedBox(height: 18),
+                DesktopContent(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _AdbStatusStrip(adb: adb),
+                      const SizedBox(height: 14),
+                      DesktopSectionLabel(
+                        label: 'Devices',
+                        trailing: Row(
+                          children: [
+                            if (deviceCount > 0)
+                              DesktopTag(
+                                label: deviceCount == 1
+                                    ? '1 attached'
+                                    : '$deviceCount attached',
+                                color: AmlTheme.sky,
+                              ),
+                            const SizedBox(width: 4),
+                            DesktopIconAction(
+                              icon: Icons.refresh_rounded,
+                              tooltip: 'Rescan devices',
+                              onPressed: () {
+                                ref.invalidate(adbAvailableProvider);
+                                ref.invalidate(devicesProvider);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _DeviceList(
+                        adb: adb,
+                        devices: devices,
+                        selected: selected,
+                        session: session,
+                      ),
+                      if (session.errorMessage != null) ...[
+                        const SizedBox(height: 10),
                         Text(
-                          'Devices',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.15,
-                            color: AmlTheme.mutedOf(context),
+                          session.errorMessage!,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Desk.danger,
                           ),
                         ),
+                      ] else if (session.isWatching) ...[
                         const SizedBox(height: 10),
-                        _DeviceList(
-                          adb: adb,
-                          devices: devices,
-                          selected: selected,
-                          session: session,
-                        ),
-                        const SizedBox(height: 16),
-                        _WatchButton(
-                          selected: selected,
-                          session: session,
-                        ),
-                        const SizedBox(height: 10),
-                        _PickAppButton(selected: selected),
-                        if (session.errorMessage != null) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            session.errorMessage!,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFE85D75),
-                            ),
-                          ),
-                        ] else if (session.isWatching) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            'Watching logcat on ${session.serial}. ANRs and '
-                            'crashes will increment the badge.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.35,
-                              color: AmlTheme.mutedOf(context),
-                            ),
-                          ),
-                        ],
+                        _WatchingNote(serial: session.serial),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -139,8 +153,42 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _AdbStatusCard extends StatelessWidget {
-  const _AdbStatusCard({required this.adb});
+class _WatchingNote extends ConsumerWidget {
+  const _WatchingNote({required this.serial});
+
+  final String? serial;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final names = ref.watch(deviceNamesProvider);
+    final label = serial == null
+        ? 'this device'
+        : resolveSerialLabel(names, serial!);
+    return Row(
+      children: [
+        Icon(
+          Icons.podcasts_rounded,
+          size: 14,
+          color: AmlTheme.violet.withValues(alpha: 0.85),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'Watching logcat on $label — ANRs and crashes increment the badge.',
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.35,
+              color: AmlTheme.mutedOf(context),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdbStatusStrip extends StatelessWidget {
+  const _AdbStatusStrip({required this.adb});
 
   final AsyncValue<bool> adb;
 
@@ -148,44 +196,59 @@ class _AdbStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final available = adb.valueOrNull ?? false;
     final loading = adb.isLoading && adb.valueOrNull == null;
-    return SettingsCard(
-      children: [
-        SettingsListTile(
-          leading: settingsPastelIcon(
-            available
-                ? Icons.check_circle_rounded
-                : Icons.usb_off_rounded,
-            available ? 'mint' : 'amber',
-            iconColor: available ? AmlTheme.mint : AmlTheme.amber,
+
+    if (loading) {
+      return const DesktopStatusStrip(
+        icon: Icons.usb_rounded,
+        accent: AmlTheme.sky,
+        title: 'Looking for adb',
+        detail: 'Checking PATH for platform-tools.',
+        leading: SizedBox(
+          width: 24,
+          height: 24,
+          child: Center(
+            child: BirdLoader(size: 22, semanticsLabel: 'Looking for adb'),
           ),
-          title: Text(
-            loading
-                ? 'Looking for adb'
-                : available
-                ? 'adb found'
-                : 'adb missing',
-          ),
-          subtitle: loading
-              ? 'Checking PATH for platform-tools.'
-              : available
-              ? 'Ready to talk to USB-debugging phones.'
-              : 'Install Android platform-tools and add adb to PATH.',
-          trailing: !available && !loading
-              ? TextButton(
-                  onPressed: () {
-                    unawaited(
-                      launchUrl(
-                        Uri.parse(
-                          'https://developer.android.com/tools/releases/platform-tools',
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('Install'),
-                )
-              : null,
         ),
-      ],
+      );
+    }
+
+    if (available) {
+      return const DesktopStatusStrip(
+        icon: Icons.check_rounded,
+        accent: AmlTheme.mint,
+        title: 'adb found',
+        detail: 'Ready to talk to USB-debugging phones.',
+        leading: SizedBox(
+          width: 24,
+          height: 24,
+          child: Center(child: DesktopStatusDot(color: AmlTheme.mint)),
+        ),
+      );
+    }
+
+    return DesktopStatusStrip(
+      icon: Icons.usb_off_rounded,
+      accent: AmlTheme.amber,
+      title: 'adb missing',
+      detail: 'Install Android platform-tools and add adb to PATH.',
+      leading: const SizedBox(
+        width: 24,
+        height: 24,
+        child: Center(child: DesktopStatusDot(color: AmlTheme.amber)),
+      ),
+      trailing: TextButton(
+        onPressed: () {
+          unawaited(
+            launchUrl(
+              Uri.parse(
+                'https://developer.android.com/tools/releases/platform-tools',
+              ),
+            ),
+          );
+        },
+        child: const Text('Install'),
+      ),
     );
   }
 }
@@ -207,180 +270,211 @@ class _DeviceList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final adbReady = adb.valueOrNull ?? false;
     final listing = devices.isLoading && devices.valueOrNull == null;
+
     if ((adb.isLoading && adb.valueOrNull == null) || (adbReady && listing)) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 36),
+      return const DesktopPanel(
+        padding: EdgeInsets.symmetric(vertical: 24),
         child: Center(
-          child: BirdLoader(
-            size: 96,
-            semanticsLabel: 'Looking for devices',
-          ),
+          child: BirdLoader(size: 64, semanticsLabel: 'Looking for devices'),
         ),
       );
     }
     if (adb.hasError) {
-      return SettingsCard(
-        children: [
-          SettingsListTile(
-            leading: settingsPastelIcon(Icons.error_outline_rounded, 'pink'),
-            title: const Text('Could not check adb'),
-            subtitle: '${adb.error}',
-          ),
-        ],
+      return DesktopStatusStrip(
+        icon: Icons.error_outline_rounded,
+        accent: AmlTheme.pink,
+        title: 'Could not check adb',
+        detail: '${adb.error}',
       );
     }
     if (!adbReady) {
-      return SettingsCard(
-        children: [
-          SettingsListTile(
-            leading: settingsPastelIcon(
-              Icons.phone_android_rounded,
-              'sky',
-            ),
-            title: const Text('Connect a device'),
-            subtitle:
-                'Install platform-tools first, then plug in a phone with USB debugging.',
-          ),
-        ],
+      return const DesktopStatusStrip(
+        icon: Icons.phone_android_rounded,
+        accent: AmlTheme.sky,
+        title: 'Connect a device',
+        detail:
+            'Install platform-tools first, then plug in a phone with USB debugging.',
       );
     }
     if (devices.hasError) {
-      return SettingsCard(
-        children: [
-          SettingsListTile(
-            leading: settingsPastelIcon(Icons.error_outline_rounded, 'pink'),
-            title: const Text('Could not list devices'),
-            subtitle: '${devices.error}',
-          ),
-        ],
+      return DesktopStatusStrip(
+        icon: Icons.error_outline_rounded,
+        accent: AmlTheme.pink,
+        title: 'Could not list devices',
+        detail: '${devices.error}',
       );
     }
+
     final list = devices.valueOrNull ?? const <AdbDevice>[];
     if (list.isEmpty) {
-      return SettingsCard(
-        children: [
-          SettingsListTile(
-            leading: settingsPastelIcon(
-              Icons.phone_android_rounded,
-              'sky',
-            ),
-            title: const Text('Connect a device'),
-            subtitle:
-                'Plug in a phone with USB debugging, unlock it, and allow this PC.',
-          ),
-        ],
+      return const DesktopStatusStrip(
+        icon: Icons.phone_android_rounded,
+        accent: AmlTheme.sky,
+        title: 'Connect a device',
+        detail:
+            'Plug in a phone with USB debugging, unlock it, and allow this PC.',
       );
     }
-    return Column(
-      children: [
-        for (var i = 0; i < list.length; i++) ...[
-          if (i > 0) const SizedBox(height: 10),
-          _DeviceCard(
-            device: list[i],
-            selected: selected?.serial == list[i].serial,
-            watching: session.isWatching && session.serial == list[i].serial,
-            anrCount: session.isWatching && session.serial == list[i].serial
-                ? session.anrCount
-                : 0,
-            onTap: () {
-              ref.read(selectedDeviceProvider.notifier).state = list[i];
-            },
-          ),
+
+    return DesktopPanel(
+      child: Column(
+        children: [
+          for (var i = 0; i < list.length; i++) ...[
+            if (i > 0) const DesktopHairline(indent: 13),
+            _DeviceRow(
+              device: list[i],
+              selected: selected?.serial == list[i].serial,
+              watching: session.isWatching && session.serial == list[i].serial,
+              anrCount: session.isWatching && session.serial == list[i].serial
+                  ? session.anrCount
+                  : 0,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
-class _DeviceCard extends StatelessWidget {
-  const _DeviceCard({
+class _DeviceRow extends ConsumerWidget {
+  const _DeviceRow({
     required this.device,
     required this.selected,
     required this.watching,
     required this.anrCount,
-    required this.onTap,
   });
 
   final AdbDevice device;
   final bool selected;
   final bool watching;
   final int anrCount;
-  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ink = AmlTheme.inkOf(context);
+    final muted = AmlTheme.mutedOf(context);
+    final names = ref.watch(deviceNamesProvider);
+    final nickname = names[device.serial]?.trim();
+    final renamed = nickname != null && nickname.isNotEmpty;
+    final primary = renamed ? nickname : device.displayName;
+    final secondary = renamed
+        ? '${device.displayName} · ${device.serial}'
+        : device.serial;
+
     final accent = switch (device.state) {
       AdbDeviceState.device => AmlTheme.mint,
       AdbDeviceState.unauthorized => AmlTheme.amber,
       AdbDeviceState.offline => AmlTheme.pink,
       AdbDeviceState.unknown => AmlTheme.sky,
     };
+
+    void select() {
+      ref.read(selectedDeviceProvider.notifier).state = device;
+    }
+
     return Material(
-      color: AmlTheme.panelOf(context),
-      elevation: selected ? 3 : 1,
-      shadowColor: AmlTheme.violet.withValues(alpha: 0.18),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(
-          color: selected
-              ? AmlTheme.violet.withValues(alpha: 0.55)
-              : AmlTheme.strokeOf(context),
-          width: selected ? 1.6 : 1,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
+      color: selected ? Desk.selectedRowFill(context) : Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        onTap: select,
+        child: SizedBox(
+          height: Desk.deviceRowHeight,
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              settingsPastelIcon(
-                Icons.phone_android_rounded,
-                device.isReady ? 'sky' : 'amber',
-                iconColor: accent,
+              Container(
+                width: 3,
+                color: selected ? AmlTheme.violet : Colors.transparent,
               ),
+              const SizedBox(width: 10),
+              Center(child: DesktopStatusDot(color: accent)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      device.displayName,
+                      primary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
                         color: ink,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      device.serial,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AmlTheme.mutedOf(context),
-                      ),
+                      secondary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Desk.mono(size: 11, color: muted),
                     ),
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _StateChip(label: device.stateLabel, color: accent),
-                  if (watching) ...[
-                    const SizedBox(height: 6),
-                    _StateChip(
-                      label: anrCount > 0 ? '$anrCount ANR' : 'watching',
-                      color: anrCount > 0 ? AmlTheme.pink : AmlTheme.violet,
-                    ),
-                  ] else if (selected) ...[
-                    const SizedBox(height: 6),
-                    _StateChip(label: 'selected', color: AmlTheme.violet),
+              const SizedBox(width: 10),
+              Center(
+                child: Row(
+                  children: [
+                    if (watching)
+                      DesktopTag(
+                        label: anrCount > 0 ? '$anrCount ANR' : 'watching',
+                        color: anrCount > 0 ? AmlTheme.pink : AmlTheme.violet,
+                      )
+                    else
+                      DesktopTag(label: device.stateLabel, color: accent),
                   ],
-                ],
+                ),
               ),
+              const SizedBox(width: 8),
+              Center(
+                child: Row(
+                  children: [
+                    DesktopIconAction(
+                      icon: watching
+                          ? Icons.stop_rounded
+                          : Icons.monitor_heart_outlined,
+                      tooltip: watching ? 'Stop logcat' : 'Watch logcat',
+                      color: watching ? AmlTheme.pink : AmlTheme.violet,
+                      onPressed: watching
+                          ? () =>
+                                ref.read(logcatSessionProvider.notifier).stop()
+                          : device.isReady
+                          ? () {
+                              select();
+                              ref
+                                  .read(logcatSessionProvider.notifier)
+                                  .watchDevice(device.serial);
+                            }
+                          : null,
+                    ),
+                    DesktopIconAction(
+                      icon: Icons.apps_rounded,
+                      tooltip: 'Pick app',
+                      onPressed: device.isReady
+                          ? () {
+                              select();
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => PackagePickerScreen(
+                                    serial: device.serial,
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                    ),
+                    DesktopIconAction(
+                      icon: Icons.drive_file_rename_outline_rounded,
+                      tooltip: 'Rename device',
+                      onPressed: () => _showRenameDialog(context, device),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
             ],
           ),
         ),
@@ -389,123 +483,103 @@ class _DeviceCard extends StatelessWidget {
   }
 }
 
-class _StateChip extends StatelessWidget {
-  const _StateChip({required this.label, required this.color});
+Future<void> _showRenameDialog(BuildContext context, AdbDevice device) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => _RenameDeviceDialog(device: device),
+  );
+}
 
-  final String label;
-  final Color color;
+/// Small rename dialog: nickname in, adb identity kept visible underneath.
+class _RenameDeviceDialog extends ConsumerStatefulWidget {
+  const _RenameDeviceDialog({required this.device});
+
+  final AdbDevice device;
+
+  @override
+  ConsumerState<_RenameDeviceDialog> createState() =>
+      _RenameDeviceDialogState();
+}
+
+class _RenameDeviceDialogState extends ConsumerState<_RenameDeviceDialog> {
+  late final TextEditingController _name;
+  late final bool _hadNickname;
+
+  @override
+  void initState() {
+    super.initState();
+    final stored =
+        ref.read(deviceNamesProvider)[widget.device.serial]?.trim() ?? '';
+    _hadNickname = stored.isNotEmpty;
+    _name = TextEditingController(text: stored);
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  void _apply(String value) {
+    final notifier = ref.read(deviceNamesProvider.notifier);
+    Navigator.of(context).pop();
+    unawaited(notifier.setName(widget.device.serial, value));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
+    final muted = AmlTheme.mutedOf(context);
+    return AlertDialog(
+      title: const Text('Rename device'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _name,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: _apply,
+              decoration: InputDecoration(
+                labelText: 'Nickname',
+                hintText: widget.device.displayName,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'adb reports this device as',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: muted,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${widget.device.displayName} · ${widget.device.serial}',
+              style: Desk.mono(size: 11.5, color: muted),
+            ),
+          ],
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: color,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        if (_hadNickname)
+          TextButton(
+            onPressed: () => _apply(''),
+            style: TextButton.styleFrom(foregroundColor: AmlTheme.pink),
+            child: const Text('Clear'),
           ),
+        FilledButton(
+          onPressed: () => _apply(_name.text),
+          child: const Text('Save'),
         ),
-      ),
-    );
-  }
-}
-
-class _AnrBadge extends StatelessWidget {
-  const _AnrBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AmlTheme.pink.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AmlTheme.pink.withValues(alpha: 0.35)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          '$count ANR',
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: AmlTheme.pink,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WatchButton extends ConsumerWidget {
-  const _WatchButton({
-    required this.selected,
-    required this.session,
-  });
-
-  final AdbDevice? selected;
-  final LogcatSessionView session;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final watching = session.isWatching;
-    final canStart = selected != null && selected!.isReady && !watching;
-    final label = watching ? 'Stop logcat' : 'Watch logcat';
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: FilledButton.icon(
-        onPressed: watching
-            ? () => ref.read(logcatSessionProvider.notifier).stop()
-            : canStart
-            ? () => ref
-                  .read(logcatSessionProvider.notifier)
-                  .watchDevice(selected!.serial)
-            : null,
-        icon: Icon(
-          watching ? Icons.stop_rounded : Icons.monitor_heart_outlined,
-        ),
-        label: Text(label),
-      ),
-    );
-  }
-}
-
-class _PickAppButton extends ConsumerWidget {
-  const _PickAppButton({required this.selected});
-
-  final AdbDevice? selected;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final canPick = selected != null && selected!.isReady;
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: OutlinedButton.icon(
-        onPressed: canPick
-            ? () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => PackagePickerScreen(
-                      serial: selected!.serial,
-                    ),
-                  ),
-                );
-              }
-            : null,
-        icon: const Icon(Icons.apps_rounded),
-        label: const Text('Pick app'),
-      ),
+      ],
     );
   }
 }

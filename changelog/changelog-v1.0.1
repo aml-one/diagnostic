@@ -4,8 +4,11 @@
 [feature] Pick a third-party app on the phone, start it, and watch PID-scoped logcat with ANR badges
 [feature] Ask DeepSeek to diagnose an ANR from capped traces, with Settings key save/test and follow-up Q&A
 [feature] Diagnose walks scan → dumpsys → bugreport → parse → Perfetto in one run, then shows stat cards, an expandable ANR stack, Perfetto findings with Open in Perfetto UI, and Markdown/JSON export
+[feature] Rename any connected phone to a nickname you recognise — it sticks per serial and shows above the real model and serial on Home and in the diagnosis report
 
 ## Improvements
+[improvement] Full desktop redesign: wide left-aligned layout, tight corner radii, compact device rows with inline actions, pastel status tags instead of large icon badges
+[improvement] Logcat is now a dense monospace pane with per-level colour markers, aligned time/tag/message columns and selectable text for copying stack traces
 [improvement] Home lists USB-debugging phones over adb and can watch logcat for ANRs
 [improvement] Pull an adb bugreport, unzip it, and parse ANR traces plus quick dumpsys gfx/mem/cpu snapshots
 [improvement] Capture a 10s Perfetto trace over adb and summarize jank with trace_processor

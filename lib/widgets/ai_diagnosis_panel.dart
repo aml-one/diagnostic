@@ -5,13 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/diagnosis/diagnosis_report.dart';
 import '../screens/settings_screen.dart';
 import '../state/deepseek_providers.dart';
+import '../theme/desktop_theme.dart';
+import 'desktop_chrome.dart';
 
 /// Ask DeepSeek card for Diagnose. Orchestrator can drop this on the report.
 class AiDiagnosisPanel extends ConsumerStatefulWidget {
-  const AiDiagnosisPanel({
-    super.key,
-    required this.report,
-  });
+  const AiDiagnosisPanel({super.key, required this.report});
 
   final DiagnosisReport report;
 
@@ -46,15 +45,13 @@ class _AiDiagnosisPanelState extends ConsumerState<AiDiagnosisPanel> {
   Future<void> _sendFollowUp() async {
     final text = _followUp.text;
     _followUp.clear();
-    await ref
-        .read(deepSeekDiagnosisControllerProvider.notifier)
-        .followUp(text);
+    await ref.read(deepSeekDiagnosisControllerProvider.notifier).followUp(text);
   }
 
   void _openSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
   }
 
   @override
@@ -64,105 +61,104 @@ class _AiDiagnosisPanelState extends ConsumerState<AiDiagnosisPanel> {
     final hasKey = ref.watch(hasDeepSeekApiKeyProvider);
     final view = ref.watch(deepSeekDiagnosisControllerProvider);
 
-    return SettingsSurface(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+    return DesktopPanel(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const DesktopPanelHeader(
+            icon: Icons.auto_awesome_rounded,
+            accent: AmlTheme.violet,
+            title: 'AI diagnosis',
+            subtitle:
+                'Sends a capped ANR evidence bundle to DeepSeek. '
+                'This uses your key and is not automatic.',
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
-              settingsPastelIcon(Icons.auto_awesome_rounded, 'violet'),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'AI diagnosis',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
+              if (!hasKey)
+                OutlinedButton.icon(
+                  onPressed: _openSettings,
+                  icon: const Icon(Icons.key_rounded, size: 16),
+                  label: const Text('Add DeepSeek API key'),
+                )
+              else
+                FilledButton.icon(
+                  onPressed: view.busy || !widget.report.hasEvidence
+                      ? null
+                      : _ask,
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                  label: Text(
+                    view.hasReply ? 'Ask DeepSeek again' : 'Ask DeepSeek',
                   ),
                 ),
-              ),
+              if (view.busy) ...[
+                const SizedBox(width: 12),
+                const BirdLoader(size: 28, semanticsLabel: 'Asking DeepSeek'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'DeepSeek is reading the traces…',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: muted),
+                  ),
+                ),
+              ] else if (hasKey && !widget.report.hasEvidence) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'No ANR evidence yet. Capture a trace first.',
+                    maxLines: 2,
+                    style: TextStyle(fontSize: 12, height: 1.3, color: muted),
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Sends a capped ANR evidence bundle to DeepSeek. '
-            'This uses your key and is not automatic.',
-            style: TextStyle(fontSize: 13, height: 1.35, color: muted),
-          ),
-          const SizedBox(height: 14),
-          if (!hasKey)
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: _openSettings,
-                child: const Text('Add DeepSeek API key'),
-              ),
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: view.busy || !widget.report.hasEvidence
-                    ? null
-                    : _ask,
-                child: Text(
-                  view.hasReply ? 'Ask DeepSeek again' : 'Ask DeepSeek',
-                ),
-              ),
-            ),
-          if (hasKey && !widget.report.hasEvidence) ...[
-            const SizedBox(height: 8),
-            Text(
-              'No ANR evidence yet. Capture a trace first.',
-              style: TextStyle(fontSize: 13, color: muted),
-            ),
-          ],
-          if (view.busy) ...[
-            const SizedBox(height: 20),
-            const Center(
-              child: BirdLoader(
-                size: 88,
-                semanticsLabel: 'Asking DeepSeek',
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                'DeepSeek is reading the traces…',
-                style: TextStyle(fontSize: 13, color: muted),
-              ),
-            ),
-          ],
           if (view.error != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
               view.error!,
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 12.5,
+                height: 1.35,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFE85D75),
+                color: Desk.danger,
               ),
             ),
           ],
           if (view.diagnosis != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _ReplyCard(text: view.diagnosis!),
           ],
           for (final turn in view.followUps) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             if (turn.role == 'user')
               Align(
                 alignment: Alignment.centerRight,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
-                  child: Text(
-                    turn.content,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: ink,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AmlTheme.violet.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(Desk.row),
+                      border: Border.all(
+                        color: AmlTheme.violet.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+                      child: Text(
+                        turn.content,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.35,
+                          fontWeight: FontWeight.w700,
+                          color: ink,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -171,25 +167,32 @@ class _AiDiagnosisPanelState extends ConsumerState<AiDiagnosisPanel> {
               _ReplyCard(text: turn.content),
           ],
           if (view.hasReply && !view.busy) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _followUp,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendFollowUp(),
-                    decoration: const InputDecoration(
-                      labelText: 'Follow-up',
-                      hintText: 'Ask about a frame or lock…',
+                  child: SizedBox(
+                    height: Desk.buttonHeight,
+                    child: TextField(
+                      controller: _followUp,
+                      textInputAction: TextInputAction.send,
+                      style: const TextStyle(fontSize: 13),
+                      onSubmitted: (_) => _sendFollowUp(),
+                      decoration: const InputDecoration(
+                        hintText: 'Ask about a frame or lock…',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.filled(
-                  tooltip: 'Send',
-                  onPressed: _sendFollowUp,
-                  icon: const Icon(Icons.send_rounded),
+                SizedBox(
+                  height: Desk.buttonHeight,
+                  child: FilledButton.icon(
+                    onPressed: _sendFollowUp,
+                    icon: const Icon(Icons.send_rounded, size: 16),
+                    label: const Text('Send'),
+                  ),
                 ),
               ],
             ),
@@ -208,15 +211,14 @@ class _ReplyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = AmlTheme.inkOf(context);
-    return Material(
-      color: AmlTheme.panelOf(context),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AmlTheme.strokeOf(context)),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Desk.logSurface(context),
+        borderRadius: BorderRadius.circular(Desk.row),
+        border: Border.all(color: Desk.hairline(context)),
       ),
-      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         child: SelectableText.rich(
           TextSpan(children: _markdownIshSpans(text, ink)),
         ),
@@ -231,19 +233,19 @@ List<InlineSpan> _markdownIshSpans(String text, Color ink) {
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i];
     var weight = FontWeight.w500;
-    var size = 14.0;
+    var size = 13.0;
     if (line.startsWith('### ')) {
       line = line.substring(4);
       weight = FontWeight.w800;
-      size = 15;
+      size = 14;
     } else if (line.startsWith('## ')) {
       line = line.substring(3);
       weight = FontWeight.w800;
-      size = 16;
+      size = 14.5;
     } else if (line.startsWith('# ')) {
       line = line.substring(2);
       weight = FontWeight.w800;
-      size = 17;
+      size = 15.5;
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       line = '• ${line.substring(2)}';
     }

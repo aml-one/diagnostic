@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/adb/package_service.dart';
 import '../state/package_providers.dart';
+import '../theme/desktop_theme.dart';
+import '../widgets/desktop_chrome.dart';
 import 'session_screen.dart';
 
 class PackagePickerScreen extends ConsumerStatefulWidget {
@@ -28,24 +30,21 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
   @override
   Widget build(BuildContext context) {
     final packages = ref.watch(packagesProvider(widget.serial));
-    final ink = AmlTheme.inkOf(context);
     final needle = _query.text.trim().toLowerCase();
 
     return SettingsPageScaffold(
       title: 'Pick app',
       actions: [
-        IconButton(
-          tooltip: 'Reload',
+        DesktopIconAction(
+          tooltip: 'Reload packages',
           onPressed: () => ref.invalidate(packagesProvider(widget.serial)),
-          icon: const Icon(Icons.refresh_rounded),
+          icon: Icons.refresh_rounded,
         ),
+        const SizedBox(width: 8),
       ],
       body: packages.when(
         loading: () => const Center(
-          child: BirdLoader(
-            size: 96,
-            semanticsLabel: 'Loading apps',
-          ),
+          child: BirdLoader(size: 72, semanticsLabel: 'Loading apps'),
         ),
         error: (err, _) => _PickerError(
           message: '$err',
@@ -61,73 +60,104 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
                           pkg.shortName.toLowerCase().contains(needle),
                     )
                     .toList(growable: false);
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                child: TextField(
-                  controller: _query,
-                  onChanged: (_) => setState(() {}),
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: 'Search packages',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: needle.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: 'Clear',
-                            onPressed: () {
-                              _query.clear();
-                              setState(() {});
-                            },
-                            icon: const Icon(Icons.close_rounded),
-                          ),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+            child: DesktopContent(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: Desk.buttonHeight,
+                    child: TextField(
+                      controller: _query,
+                      onChanged: (_) => setState(() {}),
+                      textInputAction: TextInputAction.search,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Search packages',
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                        ),
+                        prefixIcon: const Icon(Icons.search_rounded, size: 17),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 34,
+                          minHeight: 34,
+                        ),
+                        suffixIcon: needle.isEmpty
+                            ? null
+                            : DesktopIconAction(
+                                tooltip: 'Clear',
+                                onPressed: () {
+                                  _query.clear();
+                                  setState(() {});
+                                },
+                                icon: Icons.close_rounded,
+                              ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Expanded(
-                child: BirdRefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(packagesProvider(widget.serial));
-                    await ref.read(packagesProvider(widget.serial).future);
-                  },
-                  child: filtered.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            const SizedBox(height: 48),
-                            Center(
-                              child: Text(
-                                list.isEmpty
-                                    ? 'No third-party apps on this phone.'
-                                    : 'No packages match that search.',
-                                style: TextStyle(
-                                  color: AmlTheme.mutedOf(context),
-                                  fontWeight: FontWeight.w600,
+                  const SizedBox(height: 10),
+                  DesktopSectionLabel(
+                    label: 'Third-party apps',
+                    trailing: DesktopTag(
+                      label: needle.isEmpty
+                          ? '${list.length}'
+                          : '${filtered.length} / ${list.length}',
+                      color: AmlTheme.sky,
+                      mono: true,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: BirdRefreshIndicator(
+                      onRefresh: () async {
+                        ref.invalidate(packagesProvider(widget.serial));
+                        await ref.read(packagesProvider(widget.serial).future);
+                      },
+                      child: filtered.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                const SizedBox(height: 8),
+                                DesktopStatusStrip(
+                                  icon: Icons.search_off_rounded,
+                                  accent: AmlTheme.amber,
+                                  title: list.isEmpty
+                                      ? 'No third-party apps'
+                                      : 'No matches',
+                                  detail: list.isEmpty
+                                      ? 'This phone only reports system '
+                                            'packages.'
+                                      : 'Nothing matches that search.',
                                 ),
+                              ],
+                            )
+                          : DesktopPanel(
+                              radius: Desk.row,
+                              child: ListView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: EdgeInsets.zero,
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  final pkg = filtered[index];
+                                  return Column(
+                                    children: [
+                                      if (index > 0)
+                                        const DesktopHairline(indent: 44),
+                                      _PackageRow(
+                                        package: pkg,
+                                        onStart: () => _start(pkg),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
-                          ],
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
-                            final pkg = filtered[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _PackageRow(
-                                package: pkg,
-                                ink: ink,
-                                onStart: () => _start(pkg),
-                              ),
-                            );
-                          },
-                        ),
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           );
         },
       ),
@@ -137,74 +167,69 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
   void _start(InstalledPackage pkg) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SessionScreen(
-          serial: widget.serial,
-          packageName: pkg.packageName,
-        ),
+        builder: (_) =>
+            SessionScreen(serial: widget.serial, packageName: pkg.packageName),
       ),
     );
   }
 }
 
+/// Compact desktop row — same rhythm as the Home device list.
 class _PackageRow extends StatelessWidget {
-  const _PackageRow({
-    required this.package,
-    required this.ink,
-    required this.onStart,
-  });
+  const _PackageRow({required this.package, required this.onStart});
 
   final InstalledPackage package;
-  final Color ink;
   final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AmlTheme.panelOf(context),
-      elevation: 1,
-      shadowColor: AmlTheme.violet.withValues(alpha: 0.16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: BorderSide(color: AmlTheme.strokeOf(context)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onStart,
+    final ink = AmlTheme.inkOf(context);
+    final muted = AmlTheme.mutedOf(context);
+    return InkWell(
+      onTap: onStart,
+      child: SizedBox(
+        height: Desk.packageRowHeight,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
             children: [
-              settingsPastelIcon(Icons.apps_rounded, package.packageName),
-              const SizedBox(width: 12),
+              DesktopMiniIcon(
+                icon: Icons.apps_rounded,
+                color: _accentFor(package.packageName),
+                size: 24,
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       package.shortName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
                         color: ink,
                       ),
                     ),
-                    const SizedBox(height: 2),
                     Text(
                       package.packageName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AmlTheme.mutedOf(context),
-                      ),
+                      style: Desk.mono(size: 11, color: muted),
                     ),
                   ],
                 ),
               ),
-              IconButton(
+              const SizedBox(width: 8),
+              DesktopIconAction(
                 tooltip: 'Start and watch',
                 onPressed: onStart,
-                icon: Icon(Icons.play_arrow_rounded, color: AmlTheme.violet),
+                icon: Icons.play_arrow_rounded,
+                color: AmlTheme.violet,
               ),
             ],
           ),
@@ -212,6 +237,22 @@ class _PackageRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Stable pastel per package so rows are scannable without being noisy.
+Color _accentFor(String key) {
+  const palette = <Color>[
+    AmlTheme.violet,
+    AmlTheme.mint,
+    AmlTheme.sky,
+    AmlTheme.pink,
+    AmlTheme.amber,
+  ];
+  var hash = 0;
+  for (final unit in key.codeUnits) {
+    hash = (hash + unit) % palette.length;
+  }
+  return palette[hash];
 }
 
 class _PickerError extends StatelessWidget {
@@ -223,22 +264,33 @@ class _PickerError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20),
-      child: SettingsCard(
-        children: [
-          SettingsListTile(
-            leading: settingsPastelIcon(Icons.error_outline_rounded, 'pink'),
-            title: const Text('Could not list apps'),
-            subtitle: message,
+      padding: const EdgeInsets.all(16),
+      child: DesktopContent(
+        maxWidth: Desk.formWidth,
+        child: DesktopPanel(
+          tint: Desk.danger,
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const DesktopPanelHeader(
+                icon: Icons.error_outline_rounded,
+                accent: Desk.danger,
+                title: 'Could not list apps',
+              ),
+              const SizedBox(height: 10),
+              DesktopMonoBlock(text: message, maxHeight: 160),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton(
+                  onPressed: onRetry,
+                  child: const Text('Try again'),
+                ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            child: FilledButton(
-              onPressed: onRetry,
-              child: const Text('Try again'),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

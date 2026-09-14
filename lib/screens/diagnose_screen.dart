@@ -9,8 +9,11 @@ import '../core/diagnosis/diagnosis_report_export.dart';
 import '../core/logcat/anr_detector.dart';
 import '../core/perfetto/perfetto_models.dart';
 import '../core/perfetto/perfetto_service.dart';
+import '../state/device_names_provider.dart';
 import '../state/diagnosis_controller.dart';
+import '../theme/desktop_theme.dart';
 import '../widgets/ai_diagnosis_panel.dart';
+import '../widgets/desktop_chrome.dart';
 
 /// Diagnose host: runs [DiagnosisController]'s pipeline for [serial] /
 /// [packageName] (seeded by [event] when opened from an ANR banner), shows
@@ -53,11 +56,13 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
   }
 
   void _start() {
-    ref.read(diagnosisControllerProvider.notifier).run(
-      serial: widget.serial,
-      packageName: widget.packageName,
-      seedEvent: widget.event,
-    );
+    ref
+        .read(diagnosisControllerProvider.notifier)
+        .run(
+          serial: widget.serial,
+          packageName: widget.packageName,
+          seedEvent: widget.event,
+        );
   }
 
   Future<void> _export(bool asJson) async {
@@ -109,7 +114,10 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
   }
 
   Future<void> _openInPerfetto() async {
-    final trace = ref.read(diagnosisControllerProvider).perfettoResult?.traceFile;
+    final trace = ref
+        .read(diagnosisControllerProvider)
+        .perfettoResult
+        ?.traceFile;
     final launch = await PerfettoService().openInPerfettoUi(traceFile: trace);
     if (!mounted) return;
     setState(() => _exportMessage = launch.instruction);
@@ -121,24 +129,26 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
     return SettingsPageScaffold(
       title: 'Diagnose',
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
-          if (state.isDone)
-            _ReportView(
-              state: state,
-              exporting: _exporting,
-              exportMessage: _exportMessage,
-              onExport: _export,
-              onOpenPerfetto: _openInPerfetto,
-              onRunAgain: _start,
-            )
-          else
-            _ProgressCard(
-              state: state,
-              onCancel: () =>
-                  ref.read(diagnosisControllerProvider.notifier).cancel(),
-              onRetry: _start,
-            ),
+          DesktopContent(
+            child: state.isDone
+                ? _ReportView(
+                    state: state,
+                    fallbackSerial: widget.serial,
+                    exporting: _exporting,
+                    exportMessage: _exportMessage,
+                    onExport: _export,
+                    onOpenPerfetto: _openInPerfetto,
+                    onRunAgain: _start,
+                  )
+                : _ProgressPanel(
+                    state: state,
+                    onCancel: () =>
+                        ref.read(diagnosisControllerProvider.notifier).cancel(),
+                    onRetry: _start,
+                  ),
+          ),
         ],
       ),
     );
@@ -173,8 +183,8 @@ _RowStatus _statusFor(DiagnosisState state, DiagnosisStep step, bool enabled) {
   return _RowStatus.pending;
 }
 
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({
+class _ProgressPanel extends StatelessWidget {
+  const _ProgressPanel({
     required this.state,
     required this.onCancel,
     required this.onRetry,
@@ -186,12 +196,11 @@ class _ProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = AmlTheme.inkOf(context);
-    final muted = AmlTheme.mutedOf(context);
     final elapsed = state.elapsed;
     final elapsedLabel = elapsed == null
         ? null
-        : '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
+        : '${elapsed.inMinutes}:'
+              '${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}';
 
     final steps = <_StepInfo>[
       _StepInfo(
@@ -232,92 +241,80 @@ class _ProgressCard extends StatelessWidget {
       ),
     ];
 
-    return SettingsSurface(
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DesktopSectionLabel(
+          label: 'Pipeline',
+          trailing: elapsedLabel == null
+              ? null
+              : DesktopTag(
+                  label: elapsedLabel,
+                  color: AmlTheme.sky,
+                  mono: true,
+                  icon: Icons.timer_outlined,
+                ),
+        ),
+        const SizedBox(height: 6),
+        DesktopPanel(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              settingsPastelIcon(Icons.troubleshoot_rounded, 'violet'),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      state.isFailed ? 'Diagnosis stopped' : 'Diagnosing…',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: ink,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      state.progressText.isEmpty
-                          ? 'Starting…'
-                          : state.progressText,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: muted),
-                    ),
-                  ],
-                ),
+              DesktopPanelHeader(
+                icon: state.isFailed
+                    ? Icons.error_outline_rounded
+                    : Icons.troubleshoot_rounded,
+                accent: state.isFailed ? Desk.danger : AmlTheme.violet,
+                title: state.isFailed ? 'Diagnosis stopped' : 'Diagnosing…',
+                subtitle: state.progressText.isEmpty
+                    ? 'Starting…'
+                    : state.progressText,
               ),
-              if (elapsedLabel != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    elapsedLabel,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: muted,
-                    ),
+              const SizedBox(height: 10),
+              const DesktopHairline(),
+              const SizedBox(height: 4),
+              for (final step in steps)
+                _StepRow(
+                  label: step.label,
+                  icon: step.icon,
+                  status: _statusFor(state, step.step, step.enabled),
+                ),
+              if (state.isFailed) ...[
+                const SizedBox(height: 8),
+                Text(
+                  state.error ?? 'Something went wrong.',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                    color: Desk.danger,
                   ),
                 ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Try again'),
+                  ),
+                ),
+              ] else if (state.isRunning) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: onCancel,
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    label: const Text('Cancel'),
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 18),
-          for (final step in steps)
-            _StepRow(
-              label: step.label,
-              icon: step.icon,
-              status: _statusFor(state, step.step, step.enabled),
-            ),
-          if (state.isFailed) ...[
-            const SizedBox(height: 12),
-            Text(
-              state.error ?? 'Something went wrong.',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFFE85D75),
-              ),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: onRetry,
-                child: const Text('Try again'),
-              ),
-            ),
-          ] else if (state.isRunning) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onCancel,
-                icon: const Icon(Icons.close_rounded),
-                label: const Text('Cancel'),
-              ),
-            ),
-          ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -341,30 +338,38 @@ class _StepRow extends StatelessWidget {
     Widget leading;
     switch (status) {
       case _RowStatus.done:
-        leading = _StatusDot(color: AmlTheme.mint, icon: Icons.check_rounded);
+        leading = const _StepMark(
+          color: AmlTheme.mint,
+          icon: Icons.check_rounded,
+        );
       case _RowStatus.active:
-        leading = const BirdLoader(size: 22);
+        leading = const BirdLoader(size: 20);
       case _RowStatus.error:
-        leading = _StatusDot(color: AmlTheme.pink, icon: Icons.close_rounded);
-        textColor = AmlTheme.pink;
+        leading = const _StepMark(
+          color: Desk.danger,
+          icon: Icons.close_rounded,
+        );
+        textColor = Desk.danger;
       case _RowStatus.skipped:
-        leading = Icon(icon, size: 18, color: muted.withValues(alpha: 0.5));
+        leading = Icon(icon, size: 16, color: muted.withValues(alpha: 0.5));
         textColor = muted;
       case _RowStatus.pending:
-        leading = Icon(icon, size: 18, color: muted.withValues(alpha: 0.5));
+        leading = Icon(icon, size: 16, color: muted.withValues(alpha: 0.5));
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    return SizedBox(
+      height: 30,
       child: Row(
         children: [
-          SizedBox(width: 26, child: Center(child: leading)),
-          const SizedBox(width: 12),
+          SizedBox(width: 22, child: Center(child: leading)),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 14.5,
+                fontSize: 13,
                 fontWeight: status == _RowStatus.active
                     ? FontWeight.w800
                     : FontWeight.w600,
@@ -373,22 +378,15 @@ class _StepRow extends StatelessWidget {
             ),
           ),
           if (status == _RowStatus.skipped)
-            Text(
-              'skipped',
-              style: TextStyle(
-                fontSize: 12,
-                color: muted,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            DesktopTag(label: 'skipped', color: muted),
         ],
       ),
     );
   }
 }
 
-class _StatusDot extends StatelessWidget {
-  const _StatusDot({required this.color, required this.icon});
+class _StepMark extends StatelessWidget {
+  const _StepMark({required this.color, required this.icon});
 
   final Color color;
   final IconData icon;
@@ -396,20 +394,22 @@ class _StatusDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 22,
-      height: 22,
+      width: 18,
+      height: 18,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.85),
-        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(Desk.tag),
       ),
-      child: Icon(icon, size: 14, color: Colors.white),
+      alignment: Alignment.center,
+      child: Icon(icon, size: 12, color: Colors.white),
     );
   }
 }
 
-class _ReportView extends StatelessWidget {
+class _ReportView extends ConsumerWidget {
   const _ReportView({
     required this.state,
+    required this.fallbackSerial,
     required this.exporting,
     required this.exportMessage,
     required this.onExport,
@@ -418,6 +418,7 @@ class _ReportView extends StatelessWidget {
   });
 
   final DiagnosisState state;
+  final String fallbackSerial;
   final bool exporting;
   final String? exportMessage;
   final void Function(bool asJson) onExport;
@@ -425,185 +426,137 @@ class _ReportView extends StatelessWidget {
   final VoidCallback onRunAgain;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final report = state.report;
     if (report == null) return const SizedBox.shrink();
-    final ink = AmlTheme.inkOf(context);
     final muted = AmlTheme.mutedOf(context);
     final elapsed = state.elapsed;
     final pssMb = report.mem?.totalPssKb == null
         ? null
         : report.mem!.totalPssKb! / 1024;
+    final names = ref.watch(deviceNamesProvider);
+    final serial = state.serial ?? fallbackSerial;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SettingsSurface(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-          child: Row(
-            children: [
-              settingsPastelIcon(
-                Icons.fact_check_rounded,
-                'mint',
-                iconColor: AmlTheme.mint,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Diagnosis complete',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: ink,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      [
-                        state.serial ?? '',
-                        state.packageName ?? 'no package',
-                        if (elapsed != null) '${elapsed.inSeconds}s',
-                      ].where((s) => s.isNotEmpty).join(' · '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: muted),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Run again',
-                onPressed: onRunAgain,
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-            ],
+        DesktopPanel(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          child: DesktopPanelHeader(
+            icon: Icons.fact_check_rounded,
+            accent: AmlTheme.mint,
+            title: 'Diagnosis complete',
+            subtitle: [
+              resolveSerialLabel(names, serial),
+              state.packageName ?? 'no package',
+              if (elapsed != null) '${elapsed.inSeconds}s',
+            ].where((s) => s.isNotEmpty).join('  ·  '),
+            trailing: DesktopIconAction(
+              tooltip: 'Run again',
+              onPressed: onRunAgain,
+              icon: Icons.refresh_rounded,
+            ),
           ),
         ),
-        const SizedBox(height: 14),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.45,
-          children: [
-            _StatCard(
-              icon: Icons.warning_amber_rounded,
-              pastelKey: 'pink',
-              accent: AmlTheme.pink,
-              label: 'ANR events',
-              value: '${state.anrCount}',
-            ),
-            _StatCard(
-              icon: Icons.speed_rounded,
-              pastelKey: 'amber',
-              accent: AmlTheme.amber,
-              label: 'Janky frames',
-              value: report.gfx?.jankyFrames == null
-                  ? '—'
-                  : '${report.gfx!.jankyFrames}',
-              subtitle: report.gfx?.jankyPercent == null
-                  ? null
-                  : '${report.gfx!.jankyPercent!.toStringAsFixed(1)}%',
-            ),
-            _StatCard(
-              icon: Icons.memory_rounded,
-              pastelKey: 'sky',
-              accent: AmlTheme.sky,
-              label: 'Total PSS',
-              value: pssMb == null ? '—' : '${pssMb.toStringAsFixed(0)} MB',
-            ),
-            _StatCard(
-              icon: Icons.priority_high_rounded,
-              pastelKey: 'violet',
-              accent: AmlTheme.violet,
-              label: 'Top finding',
-              value: state.topFinding,
-              valueFontSize: 13,
-              valueMaxLines: 3,
-            ),
-          ],
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 680 ? 4 : 2;
+            return GridView.count(
+              crossAxisCount: columns,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: columns == 4 ? 1.55 : 1.9,
+              children: [
+                _StatCard(
+                  icon: Icons.warning_amber_rounded,
+                  accent: AmlTheme.pink,
+                  label: 'ANR events',
+                  value: '${state.anrCount}',
+                ),
+                _StatCard(
+                  icon: Icons.speed_rounded,
+                  accent: AmlTheme.amber,
+                  label: 'Janky frames',
+                  value: report.gfx?.jankyFrames == null
+                      ? '—'
+                      : '${report.gfx!.jankyFrames}',
+                  subtitle: report.gfx?.jankyPercent == null
+                      ? null
+                      : '${report.gfx!.jankyPercent!.toStringAsFixed(1)}%',
+                ),
+                _StatCard(
+                  icon: Icons.memory_rounded,
+                  accent: AmlTheme.sky,
+                  label: 'Total PSS',
+                  value: pssMb == null ? '—' : '${pssMb.toStringAsFixed(0)} MB',
+                ),
+                _StatCard(
+                  icon: Icons.priority_high_rounded,
+                  accent: AmlTheme.violet,
+                  label: 'Top finding',
+                  value: state.topFinding,
+                  valueFontSize: 12.5,
+                  valueMaxLines: 3,
+                ),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         _AnrStackViewer(report: report),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         _PerfettoSection(
           report: report,
           tracePath: state.perfettoResult?.traceFile.path,
           onOpen: onOpenPerfetto,
         ),
-        const SizedBox(height: 14),
-        SettingsSurface(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        const SizedBox(height: 10),
+        DesktopPanel(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  settingsPastelIcon(
-                    Icons.save_alt_rounded,
-                    'mint',
-                    iconColor: AmlTheme.mint,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Save report',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Writes to your Documents folder under diagnostic-reports.',
-                style: TextStyle(fontSize: 12, color: muted),
+              const DesktopPanelHeader(
+                icon: Icons.save_alt_rounded,
+                accent: AmlTheme.mint,
+                title: 'Save report',
+                subtitle:
+                    'Writes to your Documents folder under diagnostic-reports.',
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: exporting ? null : () => onExport(false),
-                      icon: const Icon(Icons.description_outlined),
-                      label: const Text('Export .md'),
-                    ),
+                  OutlinedButton.icon(
+                    onPressed: exporting ? null : () => onExport(false),
+                    icon: const Icon(Icons.description_outlined, size: 16),
+                    label: const Text('Export .md'),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: exporting ? null : () => onExport(true),
-                      icon: const Icon(Icons.data_object_rounded),
-                      label: const Text('Export .json'),
-                    ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: exporting ? null : () => onExport(true),
+                    icon: const Icon(Icons.data_object_rounded, size: 16),
+                    label: const Text('Export .json'),
                   ),
+                  if (exporting) ...[
+                    const SizedBox(width: 12),
+                    const BirdLoader(size: 28, semanticsLabel: 'Saving report'),
+                  ],
                 ],
               ),
-              if (exporting) ...[
-                const SizedBox(height: 14),
-                const Center(
-                  child: BirdLoader(size: 60, semanticsLabel: 'Saving report'),
-                ),
-              ],
               if (exportMessage != null) ...[
                 const SizedBox(height: 10),
                 SelectableText(
                   exportMessage!,
-                  style: TextStyle(fontSize: 12, color: muted),
+                  style: Desk.mono(size: 11.5, color: muted),
                 ),
               ],
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         AiDiagnosisPanel(report: report),
       ],
     );
@@ -613,20 +566,18 @@ class _ReportView extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   const _StatCard({
     required this.icon,
-    required this.pastelKey,
+    required this.accent,
     required this.label,
     required this.value,
-    this.accent,
     this.subtitle,
     this.valueFontSize = 20,
     this.valueMaxLines = 1,
   });
 
   final IconData icon;
-  final String pastelKey;
+  final Color accent;
   final String label;
   final String value;
-  final Color? accent;
   final String? subtitle;
   final double valueFontSize;
   final int valueMaxLines;
@@ -635,15 +586,26 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = AmlTheme.inkOf(context);
     final muted = AmlTheme.mutedOf(context);
-    return SettingsSurface(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      borderRadius: 22,
+    return DesktopPanel(
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          settingsPastelIcon(icon, pastelKey, iconColor: accent),
-          const SizedBox(height: 10),
+          Row(
+            children: [
+              DesktopMiniIcon(icon: icon, color: accent, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Desk.sectionLabel(context),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
           Text(
             value,
             maxLines: valueMaxLines,
@@ -651,27 +613,17 @@ class _StatCard extends StatelessWidget {
             style: TextStyle(
               fontSize: valueFontSize,
               fontWeight: FontWeight.w800,
+              height: 1.2,
               color: ink,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: muted,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 2),
+          if (subtitle != null)
             Text(
               subtitle!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 11, color: muted),
             ),
-          ],
         ],
       ),
     );
@@ -697,8 +649,8 @@ class _AnrStackViewerState extends State<_AnrStackViewer> {
     final muted = AmlTheme.mutedOf(context);
     final hasFrames = report.mainThreadFrames.isNotEmpty;
 
-    return SettingsSurface(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+    return DesktopPanel(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -706,31 +658,35 @@ class _AnrStackViewerState extends State<_AnrStackViewer> {
             onTap: hasFrames
                 ? () => setState(() => _expanded = !_expanded)
                 : null,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Desk.row),
             child: Row(
               children: [
-                settingsPastelIcon(Icons.dns_rounded, 'violet'),
-                const SizedBox(width: 12),
+                const DesktopMiniIcon(
+                  icon: Icons.dns_rounded,
+                  color: AmlTheme.violet,
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Main thread stack',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
                           color: ink,
                         ),
                       ),
-                      const SizedBox(height: 2),
                       Text(
                         hasFrames
                             ? '${report.mainThreadName ?? 'main'} · '
                                   '${report.mainThreadState ?? 'unknown'} · '
                                   '${report.mainThreadFrames.length} frames'
                             : 'No main-thread frames captured.',
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12, color: muted),
                       ),
@@ -742,57 +698,26 @@ class _AnrStackViewerState extends State<_AnrStackViewer> {
                     _expanded
                         ? Icons.expand_less_rounded
                         : Icons.expand_more_rounded,
+                    size: 20,
                     color: muted,
                   ),
               ],
             ),
           ),
           if (_expanded && hasFrames) ...[
-            const SizedBox(height: 12),
-            _MonospaceBlock(lines: report.mainThreadFrames),
+            const SizedBox(height: 10),
+            DesktopMonoBlock(text: report.mainThreadFrames.join('\n')),
             if (report.lockedStacks.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Locked / waiting',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: ink,
-                ),
-              ),
+              const SizedBox(height: 10),
+              Text('Locked / waiting', style: Desk.sectionLabel(context)),
               const SizedBox(height: 6),
-              _MonospaceBlock(lines: report.lockedStacks),
+              DesktopMonoBlock(
+                text: report.lockedStacks.join('\n'),
+                maxHeight: 220,
+              ),
             ],
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _MonospaceBlock extends StatelessWidget {
-  const _MonospaceBlock({required this.lines});
-
-  final List<String> lines;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AmlTheme.fieldOf(context),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AmlTheme.strokeOf(context)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: SelectableText(
-          lines.join('\n'),
-          style: const TextStyle(
-            fontSize: 12,
-            fontFamily: 'monospace',
-            height: 1.4,
-          ),
-        ),
       ),
     );
   }
@@ -811,61 +736,50 @@ class _PerfettoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = AmlTheme.inkOf(context);
     final muted = AmlTheme.mutedOf(context);
-    return SettingsSurface(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+    final hasTrace = tracePath != null && tracePath!.isNotEmpty;
+    return DesktopPanel(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              settingsPastelIcon(Icons.timeline_rounded, 'sky'),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Perfetto findings',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
+          DesktopPanelHeader(
+            icon: Icons.timeline_rounded,
+            accent: AmlTheme.sky,
+            title: 'Perfetto findings',
+            trailing: report.perfettoFindings.isEmpty
+                ? null
+                : DesktopTag(
+                    label: '${report.perfettoFindings.length}',
+                    color: AmlTheme.sky,
+                    mono: true,
                   ),
-                ),
-              ),
-            ],
           ),
           const SizedBox(height: 10),
           if (report.perfettoFindings.isEmpty)
             Text(
               report.processorNote ?? 'No Perfetto trace captured.',
-              style: TextStyle(fontSize: 13, color: muted),
+              style: TextStyle(fontSize: 12.5, height: 1.35, color: muted),
             )
           else
             for (final finding in report.perfettoFindings) ...[
               _FindingRow(finding: finding),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
             ],
-          if (tracePath != null && tracePath!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Local trace file',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: muted,
-              ),
-            ),
+          if (hasTrace) ...[
+            const SizedBox(height: 6),
+            Text('Local trace file', style: Desk.sectionLabel(context)),
             const SizedBox(height: 4),
             SelectableText(
               tracePath!,
-              style: TextStyle(fontSize: 12, color: muted),
+              style: Desk.mono(size: 11.5, color: muted),
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
+            Align(
+              alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
                 onPressed: onOpen,
-                icon: const Icon(Icons.open_in_new_rounded),
+                icon: const Icon(Icons.open_in_new_rounded, size: 16),
                 label: const Text('Open in Perfetto UI'),
               ),
             ),
@@ -894,11 +808,14 @@ class _FindingRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.only(top: 3),
           child: Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -909,8 +826,9 @@ class _FindingRow extends StatelessWidget {
               Text(
                 finding.title,
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
+                  height: 1.25,
                   color: ink,
                 ),
               ),
@@ -918,7 +836,7 @@ class _FindingRow extends StatelessWidget {
                 finding.detail,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: muted),
+                style: TextStyle(fontSize: 12, height: 1.3, color: muted),
               ),
             ],
           ),

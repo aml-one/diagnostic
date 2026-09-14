@@ -1,8 +1,8 @@
-import 'package:aml_ui/aml_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'screens/home_screen.dart';
+import 'theme/desktop_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,8 +17,10 @@ class DiagnosticApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'AmL Diagnostic',
-      theme: AmlTheme.light(),
-      darkTheme: AmlTheme.dark(),
+      // Local desktop chrome over AmlTheme — tighter radii and rows than the
+      // shared phone styling (see lib/theme/desktop_theme.dart).
+      theme: diagnosticLightTheme(),
+      darkTheme: diagnosticDarkTheme(),
       home: const HomeScreen(),
     );
   }
