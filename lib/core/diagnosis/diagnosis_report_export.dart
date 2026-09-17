@@ -51,7 +51,8 @@ class DiagnosisReportExport {
     return file;
   }
 
-  static Future<File> writeJson({
+  /// JSON payload for App Builder field-report upload (same shape as export).
+  static Map<String, Object?> buildPayloadMap({
     required DiagnosisReport report,
     required String serial,
     String? packageName,
@@ -62,13 +63,8 @@ class DiagnosisReportExport {
     String? bugreportExtractDir,
     String? perfettoTracePath,
     String? perfettoProcessorNote,
-  }) async {
-    final file = await _targetFile(
-      serial: serial,
-      packageName: packageName,
-      extension: 'json',
-    );
-    final payload = <String, Object?>{
+  }) {
+    return <String, Object?>{
       'device': serial,
       'package': packageName,
       'startedAt': startedAt?.toIso8601String(),
@@ -125,6 +121,64 @@ class DiagnosisReportExport {
       ],
       'logcatContext': report.logcatContext,
     };
+  }
+
+  /// Markdown summary for App Builder field-report [textBody].
+  static String buildMarkdown({
+    required DiagnosisReport report,
+    required String serial,
+    String? packageName,
+    List<AnrEvent> anrEvents = const [],
+    DateTime? startedAt,
+    DateTime? finishedAt,
+    String? bugreportZipPath,
+    String? bugreportExtractDir,
+    String? perfettoTracePath,
+    String? perfettoProcessorNote,
+  }) {
+    return _renderMarkdown(
+      report: report,
+      serial: serial,
+      packageName: packageName,
+      anrEvents: anrEvents,
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+      bugreportZipPath: bugreportZipPath,
+      bugreportExtractDir: bugreportExtractDir,
+      perfettoTracePath: perfettoTracePath,
+      perfettoProcessorNote: perfettoProcessorNote,
+    );
+  }
+
+  static Future<File> writeJson({
+    required DiagnosisReport report,
+    required String serial,
+    String? packageName,
+    List<AnrEvent> anrEvents = const [],
+    DateTime? startedAt,
+    DateTime? finishedAt,
+    String? bugreportZipPath,
+    String? bugreportExtractDir,
+    String? perfettoTracePath,
+    String? perfettoProcessorNote,
+  }) async {
+    final file = await _targetFile(
+      serial: serial,
+      packageName: packageName,
+      extension: 'json',
+    );
+    final payload = buildPayloadMap(
+      report: report,
+      serial: serial,
+      packageName: packageName,
+      anrEvents: anrEvents,
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+      bugreportZipPath: bugreportZipPath,
+      bugreportExtractDir: bugreportExtractDir,
+      perfettoTracePath: perfettoTracePath,
+      perfettoProcessorNote: perfettoProcessorNote,
+    );
     const encoder = JsonEncoder.withIndent('  ');
     await file.writeAsString(encoder.convert(payload));
     return file;

@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 
 import '../theme/desktop_theme.dart';
 
-/// Left-aligned page content with a readable max width. Desktop windows are
-/// wide; a centred 560px column reads as a phone app in a frame.
+/// Left-aligned page content that fills the window by default. Desktop
+/// windows get resized wide; capping every screen at a fixed readable width
+/// (the old default) leaves a dead strip on the right that reads as broken,
+/// not intentional. Callers that genuinely want a narrower single-column
+/// form or status card (see the package-picker error banner) can still pass
+/// an explicit [maxWidth] such as [Desk.formWidth].
 class DesktopContent extends StatelessWidget {
   const DesktopContent({
     super.key,
     required this.child,
-    this.maxWidth = Desk.contentWidth,
+    this.maxWidth = double.infinity,
   });
 
   final Widget child;

@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "AmL" "\0"
-            VALUE "FileDescription", "AmL Diagnostic" "\0"
+            VALUE "FileDescription", "AOW Diagnostic tool for Android" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "AmLDiagnostic" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 AmL. All rights reserved." "\0"
             VALUE "OriginalFilename", "AmLDiagnostic.exe" "\0"
-            VALUE "ProductName", "AmL Diagnostic" "\0"
+            VALUE "ProductName", "AOW Diagnostic tool for Android" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

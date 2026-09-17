@@ -66,12 +66,14 @@ class PerfettoService {
     String? packageName,
     Duration duration = const Duration(seconds: 10),
     PerfettoProgressCallback? onProgress,
+    AdbCancelToken? cancel,
   }) async {
     final trace = await capture(
       serial: serial,
       packageName: packageName,
       duration: duration,
       onProgress: onProgress,
+      cancel: cancel,
     );
     onProgress?.call('Analyzing trace…', progress: 0.72);
     final analyzed = await analyze(trace, onProgress: onProgress);
@@ -90,10 +92,13 @@ class PerfettoService {
     String? packageName,
     Duration duration = const Duration(seconds: 10),
     PerfettoProgressCallback? onProgress,
+    AdbCancelToken? cancel,
   }) async {
+    if (cancel?.isCancelled == true) throw const AdbCancelled();
     final seconds = _clampCaptureSeconds(duration);
     onProgress?.call('Checking perfetto on device…', progress: 0.05);
     await _ensureDevicePerfetto(serial);
+    if (cancel?.isCancelled == true) throw const AdbCancelled();
 
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final remoteName = 'aml_diag_$stamp.perfetto-trace';
@@ -106,7 +111,9 @@ class PerfettoService {
       seconds: seconds,
       packageName: packageName,
       onProgress: onProgress,
+      cancel: cancel,
     );
+    if (cancel?.isCancelled == true) throw const AdbCancelled();
 
     onProgress?.call('Pulling trace…', progress: 0.55);
     final local = await _localTraceFile(serial, stamp);
@@ -247,18 +254,26 @@ class PerfettoService {
     required int seconds,
     String? packageName,
     PerfettoProgressCallback? onProgress,
+    AdbCancelToken? cancel,
   }) async {
+    if (cancel?.isCancelled == true) throw const AdbCancelled();
     final args = buildPerfettoCaptureArgs(
       remotePath: remotePath,
       seconds: seconds,
       packageName: packageName,
     );
     final process = await _adb.start(args, serial: serial);
+    cancel?.attach(process);
+    if (cancel?.isCancelled == true) {
+      killAdbProcess(process);
+      throw const AdbCancelled();
+    }
     final stdoutFuture = process.stdout.transform(utf8.decoder).join();
     final stderrFuture = process.stderr.transform(utf8.decoder).join();
 
     var elapsed = 0;
     final ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (cancel?.isCancelled == true) return;
       elapsed++;
       final fraction = (0.12 + (elapsed / seconds) * 0.4).clamp(0.12, 0.52);
       onProgress?.call(
@@ -272,7 +287,7 @@ class PerfettoService {
         Duration(seconds: seconds + 25),
       );
     } on TimeoutException {
-      process.kill();
+      killAdbProcess(process);
       ticker.cancel();
       throw PerfettoUnavailableException(
         'perfetto capture timed out after ${seconds}s.',
@@ -280,6 +295,7 @@ class PerfettoService {
     } finally {
       ticker.cancel();
     }
+    if (cancel?.isCancelled == true) throw const AdbCancelled();
 
     final stdoutText = await stdoutFuture;
     final stderrText = await stderrFuture;
@@ -291,6 +307,7 @@ class PerfettoService {
         remotePath: remotePath,
         seconds: seconds,
         packageName: packageName,
+        cancel: cancel,
       );
       if (fallbackOk) return;
       if (_looksLikeMissingBinary(combined)) {
@@ -315,7 +332,9 @@ class PerfettoService {
     required String remotePath,
     required int seconds,
     String? packageName,
+    AdbCancelToken? cancel,
   }) async {
+    if (cancel?.isCancelled == true) throw const AdbCancelled();
     try {
       final process = await _adb.start(
         [
@@ -329,6 +348,11 @@ class PerfettoService {
         ],
         serial: serial,
       );
+      cancel?.attach(process);
+      if (cancel?.isCancelled == true) {
+        killAdbProcess(process);
+        throw const AdbCancelled();
+      }
       process.stdin.write(
         buildPerfettoTextConfig(
           seconds: seconds,
@@ -340,6 +364,8 @@ class PerfettoService {
         Duration(seconds: seconds + 25),
       );
       return code == 0;
+    } on AdbCancelled {
+      rethrow;
     } on Object {
       return false;
     }

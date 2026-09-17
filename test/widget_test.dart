@@ -6,7 +6,7 @@ import 'package:diagnostic/main.dart';
 import 'package:diagnostic/state/adb_providers.dart';
 
 void main() {
-  testWidgets('home shows AmL Diagnostic', (WidgetTester tester) async {
+  testWidgets('home shows AOW Diagnostic tool for Android', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -19,7 +19,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('AmL Diagnostic'), findsOneWidget);
+    expect(find.text('AOW Diagnostic tool for Android'), findsOneWidget);
     expect(find.text('Connect a device'), findsOneWidget);
     expect(find.text('adb found'), findsOneWidget);
   });

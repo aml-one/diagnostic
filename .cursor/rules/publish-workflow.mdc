@@ -7,7 +7,10 @@ alwaysApply: true
 
 When the user asks to **publish**, **build the app**, **build and publish**, or any equivalent full client release for a product, finish that product's pipeline with both steps below. A publish request **is** permission to commit and push.
 
-**AmL Diagnostic** has no OTA and no store listing. Do not stop after a local Windows build — still graphify and push. Never upload this app to AmL One.
+**AmL Diagnostic** is on the AmL One official shelf. Desktop OTA is
+`https://aml.one/diagnostic-ota/`. A publish / build-the-app / put-on-store
+request deploys that OTA, then graphify and GitHub. Never skip the store
+listing after they asked to put Diagnostic on the shelf.
 
 1. **Graphify** — `cd` to **that product's** repo root, then `graphify update .`. Never run it in MessageMe (`messageme`) for a sibling publish.
 2. **GitHub** — stage release-related changes (version, changelog, manifests, code, rules), commit, `git push origin` on the current branch.

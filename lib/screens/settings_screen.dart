@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:aml_ui/aml_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +14,7 @@ import '../services/settings_store.dart';
 import '../state/deepseek_providers.dart';
 import '../theme/desktop_theme.dart';
 import '../widgets/desktop_chrome.dart';
+import '../widgets/desktop_title_bar.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -136,13 +140,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final muted = AmlTheme.mutedOf(context);
+    final helpStyle = TextStyle(
+      fontSize: 12.5,
+      height: 1.45,
+      fontWeight: FontWeight.w600,
+      color: muted,
+    );
     final keyAsync = ref.watch(deepSeekApiKeyProvider);
     final stored = keyAsync.valueOrNull ?? '';
     final loading = keyAsync.isLoading && _key.text.isEmpty && !_saving;
     final busy = _saving || _testing;
 
-    return SettingsPageScaffold(
+    final hidePageHeader = kDesktopCustomTitleBar;
+    final page = SettingsPageScaffold(
       title: 'Settings',
+      showAppBar: !hidePageHeader,
+      showBackButton: !hidePageHeader,
+      embedInParentAmbient: hidePageHeader,
       body: loading
           ? const Center(
               child: BirdLoader(size: 72, semanticsLabel: 'Loading settings'),
@@ -159,9 +173,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 DesktopContent(
-                  maxWidth: Desk.formWidth,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const DesktopSectionLabel(label: 'AI diagnosis'),
                       const SizedBox(height: 6),
@@ -175,9 +188,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               accent: AmlTheme.violet,
                               title: 'DeepSeek API key',
                               subtitle:
-                                  'Used to summarize ANR traces. Stored in '
-                                  'Windows Credential Manager — never in the '
-                                  'repo.',
+                                  'Stored in ${_secureStoreLabel()} — never '
+                                  'in the repo.',
                               trailing: DesktopTag(
                                 label: stored.trim().isEmpty
                                     ? 'not set'
@@ -185,6 +197,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 color: stored.trim().isEmpty
                                     ? AmlTheme.amber
                                     : AmlTheme.mint,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: 640,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'When an app freezes, Diagnose collects traces '
+                                    'from the phone. A DeepSeek key lets you ask '
+                                    'the AI what likely caused it and what to '
+                                    'try next.',
+                                    style: helpStyle,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'You do not need a key for Watch or live '
+                                    'logs. Nothing is sent until you tap Ask '
+                                    'DeepSeek on a\u00A0report.',
+                                    style: helpStyle,
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -369,6 +406,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
     );
+    if (!hidePageHeader) return page;
+    return DesktopTitleChromeBinder(
+      title: 'Settings',
+      child: page,
+    );
+  }
+
+  String _secureStoreLabel() {
+    if (kIsWeb) return 'secure storage';
+    if (Platform.isMacOS) return 'macOS Keychain';
+    if (Platform.isWindows) return 'Windows Credential Manager';
+    if (Platform.isLinux) return 'the system keyring';
+    return 'secure storage';
   }
 
   String? _statusMessage() {

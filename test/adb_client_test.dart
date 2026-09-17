@@ -19,4 +19,13 @@ deadbeef               offline
     expect(devices[1].state, AdbDeviceState.unauthorized);
     expect(devices[2].state, AdbDeviceState.offline);
   });
+
+  test('AdbCancelToken cancel is sticky', () {
+    final token = AdbCancelToken();
+    expect(token.isCancelled, isFalse);
+    token.cancel();
+    expect(token.isCancelled, isTrue);
+    token.cancel();
+    expect(token.isCancelled, isTrue);
+  });
 }

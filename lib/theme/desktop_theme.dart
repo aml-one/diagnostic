@@ -31,6 +31,8 @@ abstract final class Desk {
   static const double formWidth = 720;
 
   static const double deviceRowHeight = 54;
+  static const double deviceCardWidth = 370;
+  static const double deviceCardHeight = 182;
   static const double packageRowHeight = 48;
   static const double logRowHeight = 22;
   static const double toolbarHeight = 40;

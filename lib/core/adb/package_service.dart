@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../diagnostics/app_log.dart';
 import 'adb_client.dart';
+import 'package_display_name.dart';
 
 /// Third-party (or all) package installed on a device.
 class InstalledPackage {
@@ -19,6 +20,13 @@ class InstalledPackage {
     if (i < 0 || i == packageName.length - 1) return packageName;
     return packageName.substring(i + 1);
   }
+
+  /// Pick-an-app row title (`Android (Accuweather)`, AB user apps, …).
+  String get displayTitle => displayPackageTitle(packageName);
+
+  bool get isAow => isAowPackage(packageName);
+  bool get isAppBuilder => isAppBuilderPackage(packageName);
+  bool get isOfficialAow => isOfficialAowPackage(packageName);
 
   @override
   bool operator ==(Object other) =>

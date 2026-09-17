@@ -44,6 +44,7 @@ class BugreportService {
   Future<BugreportResult> capture({
     required String serial,
     void Function(String status)? onProgress,
+    AdbCancelToken? cancel,
   }) async {
     final work = await _prepareWorkDir();
     final zipPath = p.join(work.path, 'bugreport.zip');
@@ -52,16 +53,22 @@ class BugreportService {
     onProgress?.call('Started bugreport');
     final started = DateTime.now();
     final timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (cancel?.isCancelled == true) return;
       onProgress?.call(
         'Running bugreport (${_formatElapsed(DateTime.now().difference(started))})',
       );
     });
     ProcessResult result;
     try {
-      result = await _adb.run(['bugreport', zipPath], serial: serial);
+      result = await _adb.runTracked(
+        ['bugreport', zipPath],
+        serial: serial,
+        cancel: cancel,
+      );
     } finally {
       timer.cancel();
     }
+    if (cancel?.isCancelled == true) throw const AdbCancelled();
 
     final resolvedZip = await _resolveZipPath(work, zipPath);
     if (result.exitCode != 0 && resolvedZip == null) {
@@ -80,7 +87,10 @@ class BugreportService {
 
     onProgress?.call('Unzipping bugreport');
     await Directory(extractDir).create(recursive: true);
-    await extractFileToDisk(resolvedZip, extractDir);
+    // Bugreports (esp. OEM FS dumps) often contain Linux paths with ':' in
+    // filenames — illegal on Windows. extractFileToDisk fails hard on those;
+    // use a sanitizing extractor instead.
+    await _extractZipSafely(resolvedZip, extractDir);
 
     final artifacts = await discoverArtifacts(extractDir);
     onProgress?.call('Done');
@@ -178,6 +188,82 @@ Future<String?> _resolveZipPath(Directory work, String expected) async {
     }
   }
   return newest?.path;
+}
+
+/// Unzip [zipPath] into [extractDir], rewriting any path segment that would be
+/// illegal on Windows (`:` `*` `?` `|` `<` `>` `"` and control chars).
+///
+/// Android / OEM bugreports routinely ship Linux-only names such as
+/// `pre_shutdown_log_2026-08-07_13:05:31.427`. Stock [extractFileToDisk]
+/// throws `FileSystemException` (errno 123) on those; this path keeps going.
+Future<void> _extractZipSafely(String zipPath, String extractDir) async {
+  final input = InputFileStream(zipPath);
+  late final Archive archive;
+  try {
+    archive = ZipDecoder().decodeStream(input);
+  } finally {
+    await input.close();
+  }
+
+  final root = p.normalize(extractDir);
+  for (final entry in archive) {
+    final safeRel = _sanitizeZipEntryName(entry.name);
+    if (safeRel.isEmpty) continue;
+    final outPath = p.normalize(p.join(root, safeRel));
+    // Zip-slip: refuse anything that would escape [extractDir].
+    if (outPath != root && !p.isWithin(root, outPath)) continue;
+
+    if (entry.isSymbolicLink) continue;
+
+    if (entry.isDirectory) {
+      await Directory(outPath).create(recursive: true);
+      continue;
+    }
+
+    await Directory(p.dirname(outPath)).create(recursive: true);
+    final output = OutputFileStream(outPath);
+    try {
+      entry.writeContent(output);
+    } catch (_) {
+      // Skip corrupt / unreadable members; ANR traces we need are elsewhere.
+    }
+    await output.close();
+  }
+}
+
+/// Collapse `a/../b`, strip absolute prefixes, and replace Windows-illegal
+/// characters in every path segment with `_`.
+String _sanitizeZipEntryName(String name) {
+  var n = name.replaceAll('\\', '/');
+  while (n.startsWith('/')) {
+    n = n.substring(1);
+  }
+  if (n.isEmpty) return '';
+  final parts = <String>[];
+  for (final part in n.split('/')) {
+    if (part.isEmpty || part == '.' || part == '..') continue;
+    parts.add(_sanitizePathSegment(part));
+  }
+  return parts.join('/');
+}
+
+String _sanitizePathSegment(String segment) {
+  final buf = StringBuffer();
+  for (final unit in segment.codeUnits) {
+    final ch = String.fromCharCode(unit);
+    if (unit < 32 || r'<>:"/\|?*'.contains(ch)) {
+      buf.write('_');
+    } else {
+      buf.write(ch);
+    }
+  }
+  var s = buf.toString().trim();
+  // Windows also rejects trailing dots/spaces in file/dir names.
+  while (s.endsWith('.') || s.endsWith(' ')) {
+    s = s.substring(0, s.length - 1);
+  }
+  if (s.isEmpty) return '_';
+  return s;
 }
 
 bool _isDumpstateName(String name) {

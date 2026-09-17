@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/adb/adb_client.dart';
 import '../core/bugreport/anr_trace_parser.dart';
 import '../core/bugreport/bugreport_service.dart';
 import '../core/diagnosis/diagnosis_report.dart';
@@ -150,6 +151,7 @@ class DiagnosisState {
 class DiagnosisController extends Notifier<DiagnosisState> {
   bool _disposed = false;
   bool _cancelRequested = false;
+  AdbCancelToken? _adbCancel;
 
   @override
   DiagnosisState build() {
@@ -159,7 +161,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
   }
 
   void _emit(DiagnosisState next) {
-    if (_disposed) return;
+    if (_disposed || _cancelRequested) return;
     state = next;
   }
 
@@ -175,10 +177,17 @@ class DiagnosisController extends Notifier<DiagnosisState> {
   }) async {
     if (state.isRunning) return;
     _cancelRequested = false;
+    _adbCancel = AdbCancelToken();
     final startedAt = DateTime.now();
-    final pkg = (packageName != null && packageName.trim().isNotEmpty)
-        ? packageName.trim()
-        : null;
+    // Prefer the ANR the user tapped — its packageHint is the target.
+    // Fall back to the caller's packageName (watched session) only when the
+    // event has no package.
+    final seedPkg = seedEvent?.packageHint.trim();
+    final pkg = (seedPkg != null && seedPkg.isNotEmpty)
+        ? seedPkg
+        : ((packageName != null && packageName.trim().isNotEmpty)
+              ? packageName.trim()
+              : null);
 
     _emit(
       DiagnosisState(
@@ -214,13 +223,15 @@ class DiagnosisController extends Notifier<DiagnosisState> {
         try {
           final snapshot = DumpsysSnapshot(adb: adb);
           final results = await Future.wait<Object>([
-            snapshot.gfxinfo(serial, pkg),
-            snapshot.meminfo(serial, pkg),
-            snapshot.cpuinfo(serial),
+            snapshot.gfxinfo(serial, pkg, cancel: _adbCancel),
+            snapshot.meminfo(serial, pkg, cancel: _adbCancel),
+            snapshot.cpuinfo(serial, cancel: _adbCancel),
           ]);
           gfx = results[0] as GfxInfoSnapshot;
           mem = results[1] as MemInfoSnapshot;
           cpu = results[2] as CpuInfoSnapshot;
+        } on AdbCancelled {
+          return;
         } on Object catch (err) {
           AppLog.w('diagnose', 'dumpsys failed', err);
           // Non-fatal — the bugreport dumpstate excerpt still carries gfx/mem
@@ -238,6 +249,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
       AppLog.i('diagnose', 'step: bugreport');
       final bugreportResult = await BugreportService(adb: adb).capture(
         serial: serial,
+        cancel: _adbCancel,
         onProgress: (status) {
           _emit(
             state.copyWith(step: DiagnosisStep.bugreport, progressText: status),
@@ -278,6 +290,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
           perfettoResult = await PerfettoService(adb: adb).captureAndAnalyze(
             serial: serial,
             packageName: pkg,
+            cancel: _adbCancel,
             onProgress: (message, {progress}) {
               _emit(
                 state.copyWith(
@@ -287,6 +300,8 @@ class DiagnosisController extends Notifier<DiagnosisState> {
               );
             },
           );
+        } on AdbCancelled {
+          return;
         } on PerfettoUnavailableException catch (err) {
           AppLog.w('diagnose', 'perfetto unavailable: ${err.message}', err);
           _emit(state.copyWith(progressText: err.message));
@@ -326,7 +341,10 @@ class DiagnosisController extends Notifier<DiagnosisState> {
           finishedAt: DateTime.now(),
         ),
       );
+    } on AdbCancelled {
+      return;
     } catch (err) {
+      if (_cancelRequested || _disposed) return;
       AppLog.e('diagnose', 'pipeline failed at ${state.step.name}', err);
       _emit(
         state.copyWith(
@@ -339,32 +357,25 @@ class DiagnosisController extends Notifier<DiagnosisState> {
     }
   }
 
-  /// Best-effort: `adb bugreport` / `perfetto` have no cancel hook exposed by
-  /// the services, so a cancel mid-phase takes effect at the next checkpoint
-  /// (right after that phase's await resolves) rather than killing it early.
+  /// Kills in-flight `adb` (bugreport / dumpsys / perfetto) and returns to idle.
+  /// The Diagnose screen pops itself; this must not leave a "stopped" card.
   void cancel() {
-    if (!state.isRunning) return;
+    if (!state.isRunning && !_cancelRequested) return;
     _cancelRequested = true;
-    _emit(state.copyWith(progressText: 'Cancelling…'));
+    _adbCancel?.cancel();
+    if (!_disposed) {
+      state = const DiagnosisState();
+    }
   }
 
   void reset() {
     _cancelRequested = false;
+    _adbCancel = null;
     _emit(const DiagnosisState());
   }
 
   bool _bail() {
-    if (!_disposed && !_cancelRequested) return false;
-    if (_disposed) return true;
-    _emit(
-      state.copyWith(
-        step: DiagnosisStep.failed,
-        failedStep: state.step,
-        error: 'Cancelled',
-        finishedAt: DateTime.now(),
-      ),
-    );
-    return true;
+    return _disposed || _cancelRequested;
   }
 
   /// Re-scans the live [LogcatSession] ring buffer (fresh [AnrDetector], so

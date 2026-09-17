@@ -85,14 +85,71 @@ class AdbException implements Exception {
       exitCode == null ? message : '$message (exit $exitCode)';
 }
 
-/// Locates `adb` on PATH and wraps device list / shell / logcat.
+/// Thrown when [AdbCancelToken.cancel] stops a tracked `adb` process.
+class AdbCancelled implements Exception {
+  const AdbCancelled();
+
+  @override
+  String toString() => 'Cancelled';
+}
+
+/// Kills in-flight [AdbClient.runTracked] / attached [Process] jobs.
+class AdbCancelToken {
+  final _processes = <Process>[];
+  var isCancelled = false;
+
+  void attach(Process process) {
+    _processes.add(process);
+    if (isCancelled) killAdbProcess(process);
+  }
+
+  void cancel() {
+    isCancelled = true;
+    final list = List<Process>.from(_processes);
+    _processes.clear();
+    for (final process in list) {
+      killAdbProcess(process);
+    }
+  }
+}
+
+/// Stops a local `adb` client. Windows uses a process-tree kill so
+/// `adb bugreport` children die instead of finishing in the background.
+void killAdbProcess(Process process) {
+  try {
+    if (Platform.isWindows) {
+      Process.runSync(
+        'taskkill',
+        ['/PID', '${process.pid}', '/T', '/F'],
+        runInShell: false,
+      );
+      return;
+    }
+    process.kill();
+  } on Object {
+    try {
+      process.kill();
+    } on Object {
+      // Already gone.
+    }
+  }
+}
+
+/// Where [AdbClient] found the `adb` binary.
+enum AdbSource { env, bundled, path, sdk }
+
+/// Locates bundled / PATH / SDK `adb` and wraps device list / shell / logcat.
 class AdbClient {
   AdbClient();
 
   String? _adbPath;
+  AdbSource? _adbSource;
   Future<String?>? _resolveInFlight;
 
-  /// Resolved `adb` executable, or null when it is not on PATH.
+  /// Which discovery path produced [resolveExecutable], once resolved.
+  AdbSource? get resolvedSource => _adbSource;
+
+  /// Resolved `adb` executable, or null when none is available.
   Future<String?> resolveExecutable() {
     return _resolveInFlight ??= _resolveExecutable();
   }
@@ -207,14 +264,22 @@ class AdbClient {
     return controller.stream;
   }
 
-  Future<String> shell(String serial, String command) async {
+  Future<String> shell(
+    String serial,
+    String command, {
+    AdbCancelToken? cancel,
+  }) async {
     final parts = command
         .trim()
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty)
         .toList();
     if (parts.isEmpty) return '';
-    final result = await run(['shell', ...parts], serial: serial);
+    final result = await runTracked(
+      ['shell', ...parts],
+      serial: serial,
+      cancel: cancel,
+    );
     final stdout = result.stdout.toString();
     final stderr = result.stderr.toString();
     if (result.exitCode != 0 && stdout.trim().isEmpty) {
@@ -227,15 +292,21 @@ class AdbClient {
   }
 
   /// Follows `adb -s SERIAL logcat -v threadtime`, optional `--pid=` / filters.
+  ///
+  /// [tailCount] maps to `logcat -T N`: dump the last N lines then keep
+  /// following. Caps the initial backlog so Watch does not freeze the UI
+  /// while parsing tens of thousands of historical lines on Windows.
   Future<Process> startLogcat(
     String serial, {
     String? pid,
     List<String>? filters,
+    int tailCount = 2000,
   }) async {
     final args = <String>[
       'logcat',
       '-v',
       'threadtime',
+      if (tailCount > 0) ...['-T', '$tailCount'],
       if (pid != null && pid.trim().isNotEmpty) '--pid=${pid.trim()}',
       ...?filters,
     ];
@@ -248,27 +319,79 @@ class AdbClient {
   }
 
   Future<ProcessResult> run(List<String> args, {String? serial}) async {
+    return runTracked(args, serial: serial);
+  }
+
+  /// Like [run], but [cancel] can kill the process instead of waiting it out.
+  Future<ProcessResult> runTracked(
+    List<String> args, {
+    String? serial,
+    AdbCancelToken? cancel,
+  }) async {
+    if (cancel?.isCancelled == true) throw const AdbCancelled();
     final path = await resolveExecutable();
     if (path == null) {
-      AppLog.w('adb', 'command failed: adb not found on PATH');
+      AppLog.w('adb', 'command failed: adb not found');
       throw AdbException(
-        'adb was not found on PATH. Install Android platform-tools.',
+        'adb was not found. Reinstall AmL Diagnostic or set AML_ADB to an adb binary.',
       );
     }
     try {
-      final result = await Process.run(
+      if (cancel == null) {
+        final result = await Process.run(
+          path,
+          _withSerial(args, serial),
+          runInShell: false,
+        );
+        if (result.exitCode != 0) {
+          AppLog.w(
+            'adb',
+            'command failed: ${_withSerial(args, serial).join(' ')} '
+            '(exit ${result.exitCode})',
+          );
+        }
+        return result;
+      }
+      final process = await Process.start(
         path,
         _withSerial(args, serial),
         runInShell: false,
       );
-      if (result.exitCode != 0) {
+      cancel.attach(process);
+      final stdout = StringBuffer();
+      final stderr = StringBuffer();
+      final outDone = process.stdout
+          .transform(utf8.decoder)
+          .listen(stdout.write, onError: (_) {})
+          .asFuture<void>();
+      final errDone = process.stderr
+          .transform(utf8.decoder)
+          .listen(stderr.write, onError: (_) {})
+          .asFuture<void>();
+      if (cancel.isCancelled) {
+        killAdbProcess(process);
+        await process.exitCode;
+        throw const AdbCancelled();
+      }
+      final code = await process.exitCode;
+      try {
+        await outDone;
+        await errDone;
+      } on Object {
+        if (cancel.isCancelled) throw const AdbCancelled();
+        rethrow;
+      }
+      if (cancel.isCancelled) throw const AdbCancelled();
+      if (code != 0) {
         AppLog.w(
           'adb',
           'command failed: ${_withSerial(args, serial).join(' ')} '
-          '(exit ${result.exitCode})',
+          '(exit $code)',
         );
       }
-      return result;
+      return ProcessResult(process.pid, code, stdout.toString(), stderr.toString());
+    } on AdbCancelled {
+      rethrow;
     } on ProcessException catch (err) {
       AppLog.w('adb', 'command failed: ${args.join(' ')}', err);
       throw AdbException(err.message);
@@ -278,9 +401,9 @@ class AdbClient {
   Future<Process> _start(List<String> args, {String? serial}) async {
     final path = await resolveExecutable();
     if (path == null) {
-      AppLog.w('adb', 'command failed: adb not found on PATH');
+      AppLog.w('adb', 'command failed: adb not found');
       throw AdbException(
-        'adb was not found on PATH. Install Android platform-tools.',
+        'adb was not found. Reinstall AmL Diagnostic or set AML_ADB to an adb binary.',
       );
     }
     try {
@@ -302,12 +425,40 @@ class AdbClient {
 
   Future<String?> _resolveExecutable() async {
     if (_adbPath != null) return _adbPath;
-    final fromWhere = await _lookupOnPath();
-    if (fromWhere != null) {
-      _adbPath = fromWhere;
+
+    final fromEnv = _fromEnvOverride();
+    if (fromEnv != null) {
+      _adbPath = fromEnv;
+      _adbSource = AdbSource.env;
+      AppLog.i('adb', 'using env override: $fromEnv');
       return _adbPath;
     }
-    // Last try: `adb` itself if the OS can spawn it without a shell.
+
+    final bundled = _bundledAdbPath();
+    if (bundled != null) {
+      _adbPath = bundled;
+      _adbSource = AdbSource.bundled;
+      AppLog.i('adb', 'using bundled: $bundled');
+      return _adbPath;
+    }
+
+    final fromPath = await _lookupOnPath();
+    if (fromPath != null) {
+      _adbPath = fromPath;
+      _adbSource = AdbSource.path;
+      AppLog.i('adb', 'using PATH: $fromPath');
+      return _adbPath;
+    }
+
+    final fromSdk = _fromAndroidSdk();
+    if (fromSdk != null) {
+      _adbPath = fromSdk;
+      _adbSource = AdbSource.sdk;
+      AppLog.i('adb', 'using Android SDK: $fromSdk');
+      return _adbPath;
+    }
+
+    // Last try: bare `adb` if the OS can spawn it without a full path.
     try {
       final probe = await Process.run(
         'adb',
@@ -316,12 +467,81 @@ class AdbClient {
       );
       if (probe.exitCode == 0) {
         _adbPath = 'adb';
+        _adbSource = AdbSource.path;
+        AppLog.i('adb', 'using bare adb on PATH');
         return _adbPath;
       }
     } on Object {
-      // Missing from PATH — callers treat this as unavailable.
+      // Missing — callers treat as unavailable.
     }
+
     _resolveInFlight = null;
+    return null;
+  }
+
+  /// `AML_ADB` (preferred) or `ADB` absolute path override.
+  String? _fromEnvOverride() {
+    for (final key in const ['AML_ADB', 'ADB']) {
+      final raw = Platform.environment[key]?.trim();
+      if (raw == null || raw.isEmpty) continue;
+      // `ADB` is sometimes set to a directory in older setups.
+      final asFile = File(raw);
+      if (asFile.existsSync() && !_looksLikeDirectory(raw)) {
+        return asFile.path;
+      }
+      final nested = File(
+        raw.endsWith(Platform.pathSeparator)
+            ? '${raw}adb${Platform.isWindows ? '.exe' : ''}'
+            : '$raw${Platform.pathSeparator}adb${Platform.isWindows ? '.exe' : ''}',
+      );
+      if (nested.existsSync()) return nested.path;
+    }
+    return null;
+  }
+
+  bool _looksLikeDirectory(String path) {
+    try {
+      return FileSystemEntity.isDirectorySync(path);
+    } on Object {
+      return false;
+    }
+  }
+
+  /// `<exeDir>/platform-tools/adb[.exe]` shipped next to the app.
+  String? _bundledAdbPath() {
+    final exeName = Platform.isWindows ? 'adb.exe' : 'adb';
+    final exeDir = File(Platform.resolvedExecutable).parent;
+    final candidates = <String>[
+      '${exeDir.path}${Platform.pathSeparator}platform-tools'
+          '${Platform.pathSeparator}$exeName',
+    ];
+    // macOS .app: also check Contents/Resources/platform-tools
+    if (Platform.isMacOS) {
+      final contents = exeDir.parent; // Contents
+      candidates.add(
+        '${contents.path}${Platform.pathSeparator}Resources'
+            '${Platform.pathSeparator}platform-tools'
+            '${Platform.pathSeparator}$exeName',
+      );
+    }
+    for (final path in candidates) {
+      final file = File(path);
+      if (file.existsSync()) return file.path;
+    }
+    return null;
+  }
+
+  String? _fromAndroidSdk() {
+    final exeName = Platform.isWindows ? 'adb.exe' : 'adb';
+    for (final key in const ['ANDROID_HOME', 'ANDROID_SDK_ROOT']) {
+      final root = Platform.environment[key]?.trim();
+      if (root == null || root.isEmpty) continue;
+      final candidate = File(
+        '$root${Platform.pathSeparator}platform-tools'
+        '${Platform.pathSeparator}$exeName',
+      );
+      if (candidate.existsSync()) return candidate.path;
+    }
     return null;
   }
 

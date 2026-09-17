@@ -105,7 +105,11 @@ class AnrTraceParser {
     final files = await discoverParseTargets(dir);
     final merged = _MergeSink();
     for (final file in files) {
-      await _parseFileInto(file, merged);
+      try {
+        await _parseFileInto(file, merged);
+      } on Object {
+        // Skip unreadable / binary-ish artifacts; keep scanning the rest.
+      }
     }
     final result = merged.toResult();
     final preferred = result.preferredAnr(packageFilter);
@@ -134,12 +138,24 @@ class AnrTraceParser {
 
   static Future<void> _parseFileInto(File file, _MergeSink merged) async {
     final scan = _FileScan();
-    final stream = file
-        .openRead()
-        .transform(utf8.decoder)
-        .transform(const LineSplitter());
-    await for (final line in stream) {
-      scan.add(line, merged);
+    // Bugreports often contain Latin-1 / OEM bytes mixed into UTF-8 text.
+    // Strict utf8.decoder throws FormatException mid-file and aborts Diagnose.
+    try {
+      final stream = file
+          .openRead()
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .transform(const LineSplitter());
+      await for (final line in stream) {
+        scan.add(line, merged);
+      }
+    } on FormatException {
+      // allowMalformed should already swallow bad bytes; if a decoder still
+      // throws, fall back to Latin-1 so Diagnose keeps going.
+      final raw = await file.readAsBytes();
+      final text = String.fromCharCodes(raw);
+      for (final line in const LineSplitter().convert(text)) {
+        scan.add(line, merged);
+      }
     }
     scan.flush(merged);
   }

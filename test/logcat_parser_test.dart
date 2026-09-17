@@ -47,6 +47,26 @@ void main() {
     expect(detector.recentBuffer.length, 4);
   });
 
+  test('hides InsetsSource IME spam from the live pane', () {
+    const noisy =
+        '09-16 10:15:24.402  14421  14421 W InsetsSource: Has no intersection or mTmpFrame.height()';
+    const keep =
+        '09-16 10:15:24.388  14421  14421 I flutter: [Session] restoreCachedProfile';
+    expect(isLogcatDisplayNoise(LogcatParser.parse(noisy)), isTrue);
+    expect(isLogcatDisplayNoise(LogcatParser.parse(keep)), isFalse);
+  });
+
+  test('level filter keeps matching letters and drops the rest', () {
+    const info =
+        '09-16 10:15:24.388  14421  14421 I flutter: [Session] restoreCachedProfile';
+    const warn =
+        '09-16 10:15:24.402  14421  14421 W InsetsSource: Has no intersection';
+    expect(passesLogcatLevelFilter(LogcatParser.parse(info), {'I', 'W'}), isTrue);
+    expect(passesLogcatLevelFilter(LogcatParser.parse(warn), {'I'}), isFalse);
+    expect(passesLogcatLevelFilter(LogcatParser.parse(info), {'W', 'E'}), isFalse);
+    expect(logcatLevelsKey({'E', 'I', 'W'}), 'IWE');
+  });
+
   test('detects FATAL EXCEPTION', () {
     final detector = AnrDetector(followLines: 4);
     AnrEvent? event;

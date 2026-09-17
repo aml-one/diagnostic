@@ -1,7 +1,7 @@
 name: diagnostic
-description: AmL Diagnostic — Android ANR and performance diagnostic tool
+description: AOW Diagnostic tool for Android — ANR and performance diagnostics
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.0.3+10003
 
 environment:
   sdk: ^3.11.4
@@ -22,6 +22,7 @@ dependencies:
   path_provider: ^2.1.5
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.1
+  window_manager: ^0.4.3
 
 dev_dependencies:
   flutter_test:
@@ -35,6 +36,9 @@ flutter_launcher_icons:
     generate: true
     image_path: "assets/branding/app_icon_light.png"
     icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/branding/app_icon_light.png"
 
 flutter:
   uses-material-design: true

@@ -85,19 +85,25 @@ class AppSessionController extends Notifier<AppSessionState> {
 
   Future<void> startAndWatch({
     required String serial,
-    required String packageName,
+    String? packageName,
     void Function()? onWatching,
   }) async {
+    final focused = packageName != null && packageName.isNotEmpty;
     state = AppSessionState(
       serial: serial,
       packageName: packageName,
-      launching: true,
+      launching: focused,
+      showAllLogs: !focused,
       active: true,
     );
     try {
       await ref.read(logcatSessionProvider.notifier).watchDevice(serial);
       if (_disposed) return;
       onWatching?.call();
+      if (!focused) {
+        state = state.copyWith(launching: false, clearError: true);
+        return;
+      }
       final launch = await ref
           .read(packageServiceProvider)
           .startApp(serial, packageName);

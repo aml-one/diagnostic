@@ -45,6 +45,8 @@ migrate_working_dir/
 /build/
 /coverage/
 windows/flutter/ephemeral/
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/
 
 # Symbolication related
 app.*.symbols
@@ -56,3 +58,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Google platform-tools binaries (fetch with scripts/fetch-platform-tools.ps1)
+/third_party/platform-tools/windows/
+/third_party/platform-tools/darwin/
+/third_party/platform-tools/linux/
+/third_party/platform-tools/FETCHED.txt
+
+# Release artifacts
+/dist/
+dart_defines.json
+.release-bump-lock
+

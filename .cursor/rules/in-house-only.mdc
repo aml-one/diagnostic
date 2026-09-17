@@ -1,20 +1,22 @@
 ---
-description: AmL Diagnostic is in-house only — never AmL One store
+description: AmL Diagnostic is an official AmL One shelf listing (desktop OTA)
 alwaysApply: true
 ---
 
-# AmL Diagnostic is never a store app
+# AmL Diagnostic is a store app
 
-AmL Diagnostic is a **local in-house** Windows tool. It will **never** ship on
-AmL One, the community shelf, downloads.aml.one, or Frankfurt OTA.
+AmL Diagnostic is on the **AmL One official shelf**. Desktop OTA lives at
+`https://aml.one/diagnostic-ota/`. There is no Android APK; GET on the phone
+shows the listing without an install. Windows, Linux, and macOS GET the
+zip / `.deb` / DMG.
 
 ```
-❌ OFFICIAL_LISTINGS / catalog.ts row for Diagnostic
-❌ Store icon, blurb, or app-info for Diagnostic
-❌ POST /api/publish/android (or any store publish API)
-❌ OTA manifests, version.json, or a downloads page
-❌ Treat "publish" / "build the app" as a store or OTA release
+✅ OFFICIAL_LISTINGS / catalog.ts row `diagnostic`
+✅ Store icon `diagnostic.png` and app-info copy
+✅ Frankfurt OTA (`/diagnostic-ota/`) when they ask to publish
+❌ POST /api/publish/android (there is no Diagnostic APK)
+❌ Listing Icon Tool
 ```
 
-`publish` / `build the app` for this repo is local build + `graphify update .`
-+ GitHub only. See `publish-workflow.mdc`.
+`publish` / `build the app` / **put it on the store** is OTA + AmL One deploy
++ `graphify update .` + GitHub. See `publish-workflow.mdc`.

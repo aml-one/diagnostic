@@ -64,18 +64,37 @@ class DumpsysSnapshot {
 
   final AdbClient _adb;
 
-  Future<GfxInfoSnapshot> gfxinfo(String serial, String package) async {
-    final out = await _adb.shell(serial, 'dumpsys gfxinfo $package');
+  Future<GfxInfoSnapshot> gfxinfo(
+    String serial,
+    String package, {
+    AdbCancelToken? cancel,
+  }) async {
+    final out = await _adb.shell(
+      serial,
+      'dumpsys gfxinfo $package',
+      cancel: cancel,
+    );
     return parseGfxInfo(out, package: package);
   }
 
-  Future<MemInfoSnapshot> meminfo(String serial, String package) async {
-    final out = await _adb.shell(serial, 'dumpsys meminfo $package');
+  Future<MemInfoSnapshot> meminfo(
+    String serial,
+    String package, {
+    AdbCancelToken? cancel,
+  }) async {
+    final out = await _adb.shell(
+      serial,
+      'dumpsys meminfo $package',
+      cancel: cancel,
+    );
     return parseMemInfo(out, package: package);
   }
 
-  Future<CpuInfoSnapshot> cpuinfo(String serial) async {
-    final out = await _adb.shell(serial, 'dumpsys cpuinfo');
+  Future<CpuInfoSnapshot> cpuinfo(
+    String serial, {
+    AdbCancelToken? cancel,
+  }) async {
+    final out = await _adb.shell(serial, 'dumpsys cpuinfo', cancel: cancel);
     return parseCpuInfo(out);
   }
 }

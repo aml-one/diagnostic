@@ -106,3 +106,17 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# Ship a private copy of Google platform-tools (adb) next to the exe so users
+# do not need Android Studio / PATH. Fetch with scripts/fetch-platform-tools.ps1.
+set(AML_PLATFORM_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/platform-tools/windows")
+if(EXISTS "${AML_PLATFORM_TOOLS_DIR}/adb.exe")
+  install(DIRECTORY "${AML_PLATFORM_TOOLS_DIR}/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/platform-tools"
+    COMPONENT Runtime
+    USE_SOURCE_PERMISSIONS)
+else()
+  message(WARNING
+    "Bundled adb missing at ${AML_PLATFORM_TOOLS_DIR}. "
+    "Run scripts/fetch-platform-tools.ps1 before shipping.")
+endif()

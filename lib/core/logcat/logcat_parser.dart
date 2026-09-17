@@ -22,8 +22,76 @@ class LogcatLine {
 
   bool get isParsed => timestamp != null;
 
+  Map<String, Object?> toWire() => {
+        'raw': raw,
+        'ts': timestamp?.millisecondsSinceEpoch,
+        'pid': pid,
+        'tid': tid,
+        'level': level,
+        'tag': tag,
+        'message': message,
+      };
+
+  factory LogcatLine.fromWire(Map<String, Object?> wire) {
+    final ts = wire['ts'];
+    return LogcatLine(
+      raw: wire['raw'] as String? ?? '',
+      timestamp: ts is int ? DateTime.fromMillisecondsSinceEpoch(ts) : null,
+      pid: wire['pid'] as int?,
+      tid: wire['tid'] as int?,
+      level: wire['level'] as String? ?? '',
+      tag: wire['tag'] as String? ?? '',
+      message: wire['message'] as String? ?? '',
+    );
+  }
+
   @override
   String toString() => raw;
+}
+
+/// Framework / OEM chatter that runs inside the app process. Real logcat,
+/// but it never helps diagnose an ANR or crash — hide it from the live pane.
+bool isLogcatDisplayNoise(LogcatLine line) {
+  if (!line.isParsed) return false;
+  return kLogcatNoiseTags.contains(line.tag);
+}
+
+const kLogcatNoiseTags = {
+  'InsetsSource',
+  'InsetsController',
+  'InsetsControllerImpl',
+  'ImeTracker',
+  'ImeFocusController',
+  'HandwritingStubImpl',
+  'HandwritingInit',
+  'InsetsAnimationCtrl',
+};
+
+/// Android logcat levels, verbose → fatal (same letters as the live-pane badges).
+const kLogcatLevels = ['V', 'D', 'I', 'W', 'E', 'F'];
+
+const kLogcatLevelLabels = {
+  'V': 'verbose',
+  'D': 'debug',
+  'I': 'info',
+  'W': 'warning',
+  'E': 'error',
+  'F': 'fatal',
+};
+
+Set<String> allLogcatLevels() => {...kLogcatLevels};
+
+String logcatLevelsKey(Set<String> levels) {
+  final buf = StringBuffer();
+  for (final level in kLogcatLevels) {
+    if (levels.contains(level)) buf.write(level);
+  }
+  return buf.toString();
+}
+
+bool passesLogcatLevelFilter(LogcatLine line, Set<String> levels) {
+  if (!line.isParsed) return true;
+  return levels.contains(line.level);
 }
 
 /// Parses `MM-DD HH:MM:SS.mmm  PID  TID LEVEL TAG: message`.

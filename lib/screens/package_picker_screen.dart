@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/adb/package_service.dart';
+import '../state/adb_providers.dart';
 import '../state/package_providers.dart';
 import '../theme/desktop_theme.dart';
 import '../widgets/desktop_chrome.dart';
+import '../widgets/desktop_title_bar.dart';
 import 'session_screen.dart';
 
 class PackagePickerScreen extends ConsumerStatefulWidget {
@@ -32,16 +34,23 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
     final packages = ref.watch(packagesProvider(widget.serial));
     final needle = _query.text.trim().toLowerCase();
 
-    return SettingsPageScaffold(
-      title: 'Pick app',
-      actions: [
-        DesktopIconAction(
-          tooltip: 'Reload packages',
-          onPressed: () => ref.invalidate(packagesProvider(widget.serial)),
-          icon: Icons.refresh_rounded,
-        ),
-        const SizedBox(width: 8),
-      ],
+    final hidePageHeader = kDesktopCustomTitleBar;
+    final page = SettingsPageScaffold(
+      title: 'Pick an app',
+      showAppBar: !hidePageHeader,
+      showBackButton: !hidePageHeader,
+      embedInParentAmbient: hidePageHeader,
+      actions: hidePageHeader
+          ? null
+          : [
+              DesktopIconAction(
+                tooltip: 'Reload packages',
+                onPressed: () =>
+                    ref.invalidate(packagesProvider(widget.serial)),
+                icon: Icons.refresh_rounded,
+              ),
+              const SizedBox(width: 8),
+            ],
       body: packages.when(
         loading: () => const Center(
           child: BirdLoader(size: 72, semanticsLabel: 'Loading apps'),
@@ -57,9 +66,17 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
                     .where(
                       (pkg) =>
                           pkg.packageName.toLowerCase().contains(needle) ||
-                          pkg.shortName.toLowerCase().contains(needle),
+                          pkg.displayTitle.toLowerCase().contains(needle),
                     )
                     .toList(growable: false);
+          final aow = filtered.where((pkg) => pkg.isOfficialAow).toList()
+            ..sort(_comparePackageTitle);
+          final appBuilder = filtered.where((pkg) => pkg.isAppBuilder).toList()
+            ..sort(_comparePackageTitle);
+          final thirdParty = filtered
+              .where((pkg) => !pkg.isAow)
+              .toList()
+            ..sort(_comparePackageTitle);
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
             child: DesktopContent(
@@ -97,24 +114,15 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  DesktopSectionLabel(
-                    label: 'Third-party apps',
-                    trailing: DesktopTag(
-                      label: needle.isEmpty
-                          ? '${list.length}'
-                          : '${filtered.length} / ${list.length}',
-                      color: AmlTheme.sky,
-                      mono: true,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
                   Expanded(
                     child: BirdRefreshIndicator(
                       onRefresh: () async {
                         ref.invalidate(packagesProvider(widget.serial));
                         await ref.read(packagesProvider(widget.serial).future);
                       },
-                      child: filtered.isEmpty
+                      child: aow.isEmpty &&
+                              appBuilder.isEmpty &&
+                              thirdParty.isEmpty
                           ? ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
                               children: [
@@ -123,7 +131,7 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
                                   icon: Icons.search_off_rounded,
                                   accent: AmlTheme.amber,
                                   title: list.isEmpty
-                                      ? 'No third-party apps'
+                                      ? 'No apps listed'
                                       : 'No matches',
                                   detail: list.isEmpty
                                       ? 'This phone only reports system '
@@ -132,26 +140,47 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
                                 ),
                               ],
                             )
-                          : DesktopPanel(
-                              radius: Desk.row,
-                              child: ListView.builder(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: EdgeInsets.zero,
-                                itemCount: filtered.length,
-                                itemBuilder: (context, index) {
-                                  final pkg = filtered[index];
-                                  return Column(
-                                    children: [
-                                      if (index > 0)
-                                        const DesktopHairline(indent: 44),
-                                      _PackageRow(
-                                        package: pkg,
-                                        onStart: () => _start(pkg),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
+                          : CustomScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              slivers: [
+                                ..._sectionSlivers(
+                                  label: 'AOW apps',
+                                  packages: aow,
+                                  emptyTitle: 'No AOW apps',
+                                  emptyDetail: needle.isEmpty
+                                      ? 'No official AmL apps are installed.'
+                                      : 'No AOW apps match that search.',
+                                  accent: AmlTheme.violet,
+                                  onStart: _start,
+                                ),
+                                const SliverToBoxAdapter(
+                                  child: SizedBox(height: 16),
+                                ),
+                                ..._sectionSlivers(
+                                  label: 'Made with App Builder',
+                                  packages: appBuilder,
+                                  emptyTitle: 'No App Builder apps',
+                                  emptyDetail: needle.isEmpty
+                                      ? 'No one.aml.ab, ab2, or appbuilder '
+                                            'projects are installed.'
+                                      : 'No App Builder apps match that search.',
+                                  accent: AmlTheme.mint,
+                                  onStart: _start,
+                                ),
+                                const SliverToBoxAdapter(
+                                  child: SizedBox(height: 16),
+                                ),
+                                ..._sectionSlivers(
+                                  label: 'Third party apps',
+                                  packages: thirdParty,
+                                  emptyTitle: 'No third party apps',
+                                  emptyDetail: needle.isEmpty
+                                      ? 'Only AmL packages are on this phone.'
+                                      : 'No third party apps match that search.',
+                                  accent: AmlTheme.sky,
+                                  onStart: _start,
+                                ),
+                              ],
                             ),
                     ),
                   ),
@@ -162,13 +191,88 @@ class _PackagePickerScreenState extends ConsumerState<PackagePickerScreen> {
         },
       ),
     );
+
+    if (!hidePageHeader) return page;
+
+    return DesktopTitleChromeBinder(
+      title: 'Pick an app',
+      actions: [
+        DesktopTitleAction(
+          icon: Icons.refresh_rounded,
+          tooltip: 'Reload packages',
+          onPressed: () => ref.invalidate(packagesProvider(widget.serial)),
+        ),
+      ],
+      child: page,
+    );
+  }
+
+  int _comparePackageTitle(InstalledPackage a, InstalledPackage b) {
+    final byTitle = a.displayTitle.toLowerCase().compareTo(
+      b.displayTitle.toLowerCase(),
+    );
+    if (byTitle != 0) return byTitle;
+    return a.packageName.toLowerCase().compareTo(b.packageName.toLowerCase());
+  }
+
+  List<Widget> _sectionSlivers({
+    required String label,
+    required List<InstalledPackage> packages,
+    required String emptyTitle,
+    required String emptyDetail,
+    required Color accent,
+    required void Function(InstalledPackage pkg) onStart,
+  }) {
+    return [
+      SliverToBoxAdapter(
+        child: DesktopSectionLabel(
+          label: label,
+          trailing: DesktopTag(
+            label: '${packages.length}',
+            color: accent,
+            mono: true,
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 6)),
+      if (packages.isEmpty)
+        SliverToBoxAdapter(
+          child: DesktopStatusStrip(
+            icon: Icons.apps_rounded,
+            accent: accent,
+            title: emptyTitle,
+            detail: emptyDetail,
+          ),
+        )
+      else
+        SliverToBoxAdapter(
+          child: DesktopPanel(
+            radius: Desk.row,
+            child: Column(
+              children: [
+                for (var i = 0; i < packages.length; i++) ...[
+                  if (i > 0) const DesktopHairline(indent: 44),
+                  _PackageRow(
+                    package: packages[i],
+                    onStart: () => onStart(packages[i]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+    ];
   }
 
   void _start(InstalledPackage pkg) {
+    final selected = ref.read(selectedDeviceProvider);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            SessionScreen(serial: widget.serial, packageName: pkg.packageName),
+        builder: (_) => SessionScreen(
+          serial: widget.serial,
+          packageName: pkg.packageName,
+          device: selected?.serial == widget.serial ? selected : null,
+        ),
       ),
     );
   }
@@ -205,7 +309,7 @@ class _PackageRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      package.shortName,
+                      package.displayTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

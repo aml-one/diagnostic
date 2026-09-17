@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:aml_ui/aml_ui.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/diagnosis/diagnosis_report.dart';
 import '../core/diagnosis/diagnosis_report_export.dart';
+import '../core/upload/field_report_client.dart';
 import '../core/logcat/anr_detector.dart';
 import '../core/perfetto/perfetto_models.dart';
 import '../core/perfetto/perfetto_service.dart';
@@ -14,6 +16,7 @@ import '../state/diagnosis_controller.dart';
 import '../theme/desktop_theme.dart';
 import '../widgets/ai_diagnosis_panel.dart';
 import '../widgets/desktop_chrome.dart';
+import '../widgets/desktop_title_bar.dart';
 
 /// Diagnose host: runs [DiagnosisController]'s pipeline for [serial] /
 /// [packageName] (seeded by [event] when opened from an ANR banner), shows
@@ -38,7 +41,9 @@ class DiagnoseScreen extends ConsumerStatefulWidget {
 class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
   Timer? _tick;
   bool _exporting = false;
+  bool _sendingToAppBuilder = false;
   String? _exportMessage;
+  final _fieldReports = FieldReportClient();
 
   @override
   void initState() {
@@ -52,6 +57,8 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
   @override
   void dispose() {
     _tick?.cancel();
+    // Stop in-flight adb / parse work when the user leaves this route.
+    ref.read(diagnosisControllerProvider.notifier).cancel();
     super.dispose();
   }
 
@@ -113,6 +120,111 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
     }
   }
 
+  Future<void> _sendToAppBuilder() async {
+    final state = ref.read(diagnosisControllerProvider);
+    final report = state.report;
+    if (report == null) return;
+
+    final packageName = state.packageName ?? widget.packageName;
+    if (packageName == null || packageName.trim().isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _exportMessage = 'No package name — cannot send to App Builder.';
+      });
+      return;
+    }
+
+    setState(() {
+      _sendingToAppBuilder = true;
+      _exportMessage = null;
+    });
+
+    try {
+      final serial = state.serial ?? widget.serial;
+      final payload = DiagnosisReportExport.buildPayloadMap(
+        report: report,
+        serial: serial,
+        packageName: packageName,
+        anrEvents: state.anrEvents,
+        startedAt: state.startedAt,
+        finishedAt: state.finishedAt,
+        bugreportZipPath: state.bugreportResult?.zipPath,
+        bugreportExtractDir: state.bugreportResult?.extractDir,
+        perfettoTracePath: state.perfettoResult?.traceFile.path,
+        perfettoProcessorNote: state.perfettoResult?.processorNote,
+      );
+      final markdown = DiagnosisReportExport.buildMarkdown(
+        report: report,
+        serial: serial,
+        packageName: packageName,
+        anrEvents: state.anrEvents,
+        startedAt: state.startedAt,
+        finishedAt: state.finishedAt,
+        bugreportZipPath: state.bugreportResult?.zipPath,
+        bugreportExtractDir: state.bugreportResult?.extractDir,
+        perfettoTracePath: state.perfettoResult?.traceFile.path,
+        perfettoProcessorNote: state.perfettoResult?.processorNote,
+      );
+
+      File? bugreportZip;
+      final zipPath = state.bugreportResult?.zipPath;
+      if (zipPath != null && zipPath.isNotEmpty) {
+        final file = File(zipPath);
+        if (await file.exists()) bugreportZip = file;
+      }
+
+      final result = await _fieldReports.upload(
+        applicationId: packageName,
+        kind: FieldReportKinds.diagnosis,
+        title: topFindingFor(report),
+        deviceSerial: serial,
+        textBody: markdown,
+        payloadJson: payload,
+        attachment: bugreportZip,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _sendingToAppBuilder = false;
+        _exportMessage = 'Sent to App Builder (report ${result.id}).';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sent to App Builder (${result.id}).'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } on FieldReportUploadException catch (err) {
+      if (!mounted) return;
+      final message = fieldReportUserMessage(err);
+      setState(() {
+        _sendingToAppBuilder = false;
+        _exportMessage = message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (err) {
+      if (!mounted) return;
+      final message = 'Could not reach App Builder ($err).';
+      setState(() {
+        _sendingToAppBuilder = false;
+        _exportMessage = message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _openInPerfetto() async {
     final trace = ref
         .read(diagnosisControllerProvider)
@@ -126,28 +238,59 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(diagnosisControllerProvider);
+    // Progress stays a centered mid-window card. The finished report needs the
+    // full width for its stat grid, so it keeps edge-to-edge DesktopContent.
+    if (!state.isDone) {
+      // Narrow centered card — not a full-bleed strip. Cap well below
+      // Desk.formWidth so a maximized Windows window still shows clear
+      // empty margin on both sides.
+      return SettingsPageScaffold(
+        title: 'Diagnose',
+        showBackButton: !kDesktopCustomTitleBar,
+        embedInParentAmbient: kDesktopCustomTitleBar,
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: SizedBox(
+                width: double.infinity,
+                child: _ProgressPanel(
+                  state: state,
+                  fallbackSerial: widget.serial,
+                  fallbackPackageName: widget.packageName,
+                  onCancel: () {
+                    ref.read(diagnosisControllerProvider.notifier).cancel();
+                    if (context.mounted) Navigator.of(context).maybePop();
+                  },
+                  onRetry: _start,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return SettingsPageScaffold(
       title: 'Diagnose',
+      showBackButton: !kDesktopCustomTitleBar,
+      embedInParentAmbient: kDesktopCustomTitleBar,
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           DesktopContent(
-            child: state.isDone
-                ? _ReportView(
-                    state: state,
-                    fallbackSerial: widget.serial,
-                    exporting: _exporting,
-                    exportMessage: _exportMessage,
-                    onExport: _export,
-                    onOpenPerfetto: _openInPerfetto,
-                    onRunAgain: _start,
-                  )
-                : _ProgressPanel(
-                    state: state,
-                    onCancel: () =>
-                        ref.read(diagnosisControllerProvider.notifier).cancel(),
-                    onRetry: _start,
-                  ),
+            child: _ReportView(
+              state: state,
+              fallbackSerial: widget.serial,
+              fallbackPackageName: widget.packageName,
+              exporting: _exporting,
+              sendingToAppBuilder: _sendingToAppBuilder,
+              exportMessage: _exportMessage,
+              onExport: _export,
+              onSendToAppBuilder: _sendToAppBuilder,
+              onOpenPerfetto: _openInPerfetto,
+              onRunAgain: _start,
+            ),
           ),
         ],
       ),
@@ -183,19 +326,30 @@ _RowStatus _statusFor(DiagnosisState state, DiagnosisStep step, bool enabled) {
   return _RowStatus.pending;
 }
 
-class _ProgressPanel extends StatelessWidget {
+class _ProgressPanel extends ConsumerWidget {
   const _ProgressPanel({
     required this.state,
+    required this.fallbackSerial,
+    required this.fallbackPackageName,
     required this.onCancel,
     required this.onRetry,
   });
 
   final DiagnosisState state;
+  final String fallbackSerial;
+  final String? fallbackPackageName;
   final VoidCallback onCancel;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final names = ref.watch(deviceNamesProvider);
+    final serial = state.serial ?? fallbackSerial;
+    final packageName = state.packageName ?? fallbackPackageName;
+    final deviceLabel = resolveSerialLabel(names, serial);
+    final packageLabel = (packageName == null || packageName.trim().isEmpty)
+        ? 'Whole device'
+        : packageName.trim();
     final elapsed = state.elapsed;
     final elapsedLabel = elapsed == null
         ? null
@@ -272,6 +426,19 @@ class _ProgressPanel extends StatelessWidget {
                     : state.progressText,
               ),
               const SizedBox(height: 10),
+              _DiagnosisTarget(
+                deviceLabel: deviceLabel,
+                serial: serial,
+                packageLabel: packageLabel,
+              ),
+              const SizedBox(height: 12),
+              _PipelineProgressBar(
+                statuses: [
+                  for (final step in steps)
+                    _statusFor(state, step.step, step.enabled),
+                ],
+              ),
+              const SizedBox(height: 10),
               const DesktopHairline(),
               const SizedBox(height: 4),
               for (final step in steps)
@@ -319,6 +486,149 @@ class _ProgressPanel extends StatelessWidget {
   }
 }
 
+
+
+class _DiagnosisTarget extends StatelessWidget {
+  const _DiagnosisTarget({
+    required this.deviceLabel,
+    required this.serial,
+    required this.packageLabel,
+  });
+
+  final String deviceLabel;
+  final String serial;
+  final String packageLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AmlTheme.mutedOf(context);
+    final showSerial = deviceLabel != serial;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: AmlTheme.violet.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(Desk.row),
+        border: Border.all(
+          color: AmlTheme.violet.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TARGET',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              color: muted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            packageLabel,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              height: 1.25,
+              letterSpacing: -0.1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            showSerial ? '$deviceLabel · $serial' : deviceLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: muted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PipelineProgressBar extends StatelessWidget {
+  const _PipelineProgressBar({required this.statuses});
+
+  final List<_RowStatus> statuses;
+
+  @override
+  Widget build(BuildContext context) {
+    final track = AmlTheme.isDark(context)
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFFE6E1F4);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            for (var i = 0; i < statuses.length; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              Expanded(child: _seg(statuses[i], track)),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _caption(statuses),
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            color: AmlTheme.mutedOf(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static Widget _seg(_RowStatus status, Color track) {
+    final Color fill;
+    switch (status) {
+      case _RowStatus.done:
+        fill = AmlTheme.mint;
+      case _RowStatus.active:
+        fill = AmlTheme.violet;
+      case _RowStatus.error:
+        fill = Desk.danger;
+      case _RowStatus.skipped:
+        fill = track;
+      case _RowStatus.pending:
+        fill = track;
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: SizedBox(
+        height: 6,
+        child: ColoredBox(color: fill),
+      ),
+    );
+  }
+
+  static String _caption(List<_RowStatus> statuses) {
+    final total = statuses.where((s) => s != _RowStatus.skipped).length;
+    final done = statuses.where((s) => s == _RowStatus.done).length;
+    final active = statuses.indexWhere((s) => s == _RowStatus.active);
+    final failed = statuses.indexWhere((s) => s == _RowStatus.error);
+    if (failed >= 0) {
+      return 'Stopped at step ${failed + 1} of ${statuses.length}';
+    }
+    if (done >= total && total > 0) {
+      return 'All $total steps complete';
+    }
+    if (active >= 0) {
+      return 'Step ${active + 1} of ${statuses.length}';
+    }
+    return 'Step $done of $total';
+  }
+}
+
 class _StepRow extends StatelessWidget {
   const _StepRow({
     required this.label,
@@ -343,7 +653,14 @@ class _StepRow extends StatelessWidget {
           icon: Icons.check_rounded,
         );
       case _RowStatus.active:
-        leading = const BirdLoader(size: 20);
+        leading = SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AmlTheme.violet,
+          ),
+        );
       case _RowStatus.error:
         leading = const _StepMark(
           color: Desk.danger,
@@ -410,18 +727,24 @@ class _ReportView extends ConsumerWidget {
   const _ReportView({
     required this.state,
     required this.fallbackSerial,
+    required this.fallbackPackageName,
     required this.exporting,
+    required this.sendingToAppBuilder,
     required this.exportMessage,
     required this.onExport,
+    required this.onSendToAppBuilder,
     required this.onOpenPerfetto,
     required this.onRunAgain,
   });
 
   final DiagnosisState state;
   final String fallbackSerial;
+  final String? fallbackPackageName;
   final bool exporting;
+  final bool sendingToAppBuilder;
   final String? exportMessage;
   final void Function(bool asJson) onExport;
+  final VoidCallback onSendToAppBuilder;
   final VoidCallback onOpenPerfetto;
   final VoidCallback onRunAgain;
 
@@ -436,6 +759,9 @@ class _ReportView extends ConsumerWidget {
         : report.mem!.totalPssKb! / 1024;
     final names = ref.watch(deviceNamesProvider);
     final serial = state.serial ?? fallbackSerial;
+    final packageName = state.packageName ?? fallbackPackageName;
+    final canSendToAppBuilder =
+        packageName != null && packageName.trim().isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -540,9 +866,23 @@ class _ReportView extends ConsumerWidget {
                     icon: const Icon(Icons.data_object_rounded, size: 16),
                     label: const Text('Export .json'),
                   ),
-                  if (exporting) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: (exporting ||
+                            sendingToAppBuilder ||
+                            !canSendToAppBuilder)
+                        ? null
+                        : onSendToAppBuilder,
+                    icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+                    label: const Text('Send to App Builder'),
+                  ),
+                  if (exporting || sendingToAppBuilder) ...[
                     const SizedBox(width: 12),
-                    const BirdLoader(size: 28, semanticsLabel: 'Saving report'),
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ],
                 ],
               ),

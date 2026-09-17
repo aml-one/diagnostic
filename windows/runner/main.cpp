@@ -8,7 +8,7 @@
 namespace {
 
 constexpr wchar_t kSingleInstanceMutex[] = L"Global\\AmLDiagnosticSingleInstance";
-constexpr wchar_t kWindowTitle[] = L"AmL Diagnostic";
+constexpr wchar_t kWindowTitle[] = L"AOW Diagnostic tool for Android";
 
 struct FindWindowData {
   HWND result = nullptr;
