@@ -1,6 +1,19 @@
 [
   {
     "platform": "diagnosticAndroid",
+    "version": "1.0.6",
+    "buildNumber": 22006,
+    "label": "v1.0.6-260918",
+    "file": "diagnostic-android-arm64-v1.0.6-260918.apk",
+    "sizeBytes": 21493851,
+    "sha256": "d4ffa8305703d862b03ddb19dfa2a4374e89d70a358c11e1016343fa0ff66594",
+    "publishedAt": "2026-09-18T19:59:38.1717233Z",
+    "changelog": [
+      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+    ]
+  },
+  {
+    "platform": "diagnosticAndroid",
     "version": "1.0.5",
     "buildNumber": 22005,
     "label": "v1.0.5-260918",
@@ -63,6 +76,58 @@
       "[bugfix] Watch keeps logcat running when you leave Diagnostic, so HyperOS does not ask for device logs again",
       "[bugfix] Watch pauses Live as soon as you drag away from the newest lines",
       "[bugfix] Phone Diagnose dumps live logcat on every run, including Refresh, instead of replaying the frozen Watch snapshot"
+    ]
+  },
+  {
+    "platform": "diagnosticMacosIntel",
+    "version": "1.0.6",
+    "buildNumber": 10006,
+    "label": "v1.0.6-260918",
+    "file": "diagnostic-macos-intel-v1.0.6-260918.dmg",
+    "sizeBytes": 17298233,
+    "sha256": "7e87c6a60592e7a25b0c4116a7f54266498e391e853c2105e97ed9b1cf20b3a5",
+    "publishedAt": "2026-09-18T20:02:14.8352692Z",
+    "changelog": [
+      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+    ]
+  },
+  {
+    "platform": "diagnosticMacos",
+    "version": "1.0.6",
+    "buildNumber": 10006,
+    "label": "v1.0.6-260918",
+    "file": "diagnostic-macos-silicon-v1.0.6-260918.dmg",
+    "sizeBytes": 15939799,
+    "sha256": "cab16d92e312d80c656b56fbabec1817a71357a8e1a86e7ac327d18013a0efb7",
+    "publishedAt": "2026-09-18T20:01:31.3817021Z",
+    "changelog": [
+      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+    ]
+  },
+  {
+    "platform": "diagnosticLinux",
+    "version": "1.0.6",
+    "buildNumber": 10006,
+    "label": "v1.0.6-260918",
+    "file": "diagnostic-linux-x64-v1.0.6-260918.deb",
+    "sizeBytes": 14311146,
+    "sha256": "9d60536e767ebfca5f4c3cef93e315f8c69999de651aa02b072affdbfe4d6f67",
+    "publishedAt": "2026-09-18T20:00:54.3197850Z",
+    "changelog": [
+      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+    ]
+  },
+  {
+    "platform": "diagnosticWindows",
+    "version": "1.0.6",
+    "buildNumber": 10006,
+    "label": "v1.0.6-260918",
+    "file": "diagnostic-windows-x64-v1.0.6-260918.zip",
+    "sizeBytes": 19526943,
+    "sha256": "3804df44cc2cad6da5785807ce0a75ddcf25123bf5cd335f78ce4ea160ed262d",
+    "publishedAt": "2026-09-18T20:00:18.7682784Z",
+    "changelog": [
+      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
     ]
   },
   {

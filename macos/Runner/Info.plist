@@ -32,8 +32,8 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<!-- Skia, not Impeller. Current Flutter Metal/Impeller null-derefs on
-	     Intel macOS 11.7.11 during FlutterViewController viewWillAppear. -->
+	<!-- macOS Impeller is already off. This flag does not stop the Intel HD
+	     5000 SIGSEGV; MainFlutterWindow skips Flutter unless GPU family Mac2. -->
 	<key>FLTEnableImpeller</key>
 	<false/>
 </dict>

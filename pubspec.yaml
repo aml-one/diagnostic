@@ -1,7 +1,7 @@
 name: diagnostic
 description: AOW Diagnostic tool for Android — ANR and performance diagnostics
 publish_to: 'none'
-version: 1.0.5+10005
+version: 1.0.6+10006
 
 environment:
   sdk: ^3.11.4
