@@ -1,6 +1,19 @@
 [
   {
     "platform": "diagnosticAndroid",
+    "version": "1.0.5",
+    "buildNumber": 22005,
+    "label": "v1.0.5-260918",
+    "file": "diagnostic-android-arm64-v1.0.5-260918.apk",
+    "sizeBytes": 21493851,
+    "sha256": "74945e587e31d926159f30131954608c23ab0ae6450448ed9fe4b099c0299d17",
+    "publishedAt": "2026-09-18T18:47:13.5872471Z",
+    "changelog": [
+      "[bugfix] Intel Mac on macOS 11.7.11 no longer crashes the instant the window appears"
+    ]
+  },
+  {
+    "platform": "diagnosticAndroid",
     "version": "1.0.4",
     "buildNumber": 22004,
     "label": "v1.0.4-260918",
@@ -50,6 +63,58 @@
       "[bugfix] Watch keeps logcat running when you leave Diagnostic, so HyperOS does not ask for device logs again",
       "[bugfix] Watch pauses Live as soon as you drag away from the newest lines",
       "[bugfix] Phone Diagnose dumps live logcat on every run, including Refresh, instead of replaying the frozen Watch snapshot"
+    ]
+  },
+  {
+    "platform": "diagnosticLinux",
+    "version": "1.0.5",
+    "buildNumber": 10005,
+    "label": "v1.0.5-260918",
+    "file": "diagnostic-linux-x64-v1.0.5-260918.deb",
+    "sizeBytes": 14311278,
+    "sha256": "0d53dd0e9b1d6f45e644be7571a9a39fa160fcbf6f558ae9a747f1e5a52e9c10",
+    "publishedAt": "2026-09-18T18:44:28.8936397Z",
+    "changelog": [
+      "[bugfix] Intel Mac on macOS 11.7.11 no longer crashes the instant the window appears"
+    ]
+  },
+  {
+    "platform": "diagnosticWindows",
+    "version": "1.0.5",
+    "buildNumber": 10005,
+    "label": "v1.0.5-260918",
+    "file": "diagnostic-windows-x64-v1.0.5-260918.zip",
+    "sizeBytes": 19526876,
+    "sha256": "16e0150abe9c84e14c08b11bd53342fb3d5ef27a74a95a896bc87fd00ee38fdc",
+    "publishedAt": "2026-09-18T18:43:40.7040305Z",
+    "changelog": [
+      "[bugfix] Intel Mac on macOS 11.7.11 no longer crashes the instant the window appears"
+    ]
+  },
+  {
+    "platform": "diagnosticMacos",
+    "version": "1.0.5",
+    "buildNumber": 10005,
+    "label": "v1.0.5-260918",
+    "file": "diagnostic-macos-silicon-v1.0.5-260918.dmg",
+    "sizeBytes": 15927959,
+    "sha256": "370959e408689da72b2643d6ffb1adc25fdaaba1724bc45cd953ff97da478f76",
+    "publishedAt": "2026-09-18T18:43:03.3195344Z",
+    "changelog": [
+      "[bugfix] Intel Mac on macOS 11.7.11 no longer crashes the instant the window appears"
+    ]
+  },
+  {
+    "platform": "diagnosticMacosIntel",
+    "version": "1.0.5",
+    "buildNumber": 10005,
+    "label": "v1.0.5-260918",
+    "file": "diagnostic-macos-intel-v1.0.5-260918.dmg",
+    "sizeBytes": 17287590,
+    "sha256": "9302accc47b53e2aa47cf59e591065d4f8e6b4c8b67b74fd415b6acdb03ac4c8",
+    "publishedAt": "2026-09-18T18:42:26.3156534Z",
+    "changelog": [
+      "[bugfix] Intel Mac on macOS 11.7.11 no longer crashes the instant the window appears"
     ]
   },
   {

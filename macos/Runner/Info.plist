@@ -32,5 +32,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- Skia, not Impeller. Current Flutter Metal/Impeller null-derefs on
+	     Intel macOS 11.7.11 during FlutterViewController viewWillAppear. -->
+	<key>FLTEnableImpeller</key>
+	<false/>
 </dict>
 </plist>
