@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/adb/adb_client.dart';
 import '../core/adb/device_details.dart';
+import '../core/adb/on_device_logging.dart';
 import '../state/adb_providers.dart';
 import '../state/device_names_provider.dart';
+import '../state/on_device_logging_providers.dart';
 import '../theme/desktop_theme.dart';
 import 'desktop_chrome.dart';
 
@@ -21,6 +23,7 @@ class DeviceCard extends ConsumerStatefulWidget {
     required this.onWatchToggle,
     required this.onPickApp,
     required this.onRename,
+    required this.onAllowLogging,
   });
 
   final AdbDevice device;
@@ -31,6 +34,7 @@ class DeviceCard extends ConsumerStatefulWidget {
   final VoidCallback onWatchToggle;
   final VoidCallback onPickApp;
   final VoidCallback onRename;
+  final VoidCallback onAllowLogging;
 
   @override
   ConsumerState<DeviceCard> createState() => _DeviceCardState();
@@ -48,6 +52,9 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
     final names = ref.watch(deviceNamesProvider);
     final nickname = names[device.serial]?.trim();
     final renamed = nickname != null && nickname.isNotEmpty;
+    final logging = device.isReady
+        ? ref.watch(onDeviceLoggingProvider(device.serial)).valueOrNull
+        : null;
 
     final accent = switch (device.state) {
       AdbDeviceState.device => AmlTheme.mint,
@@ -290,6 +297,27 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
                                   ? widget.onPickApp
                                   : null,
                             ),
+                            const SizedBox(width: 2),
+                            _LabeledCardAction(
+                              glyph: _AllowGlyph(
+                                color: logging?.isGranted == true
+                                    ? AmlTheme.mint
+                                    : AmlTheme.amber,
+                                enabled: device.isReady,
+                                granted: logging?.isGranted == true,
+                              ),
+                              label: logging?.status ==
+                                      OnDeviceLoggingStatus.granted
+                                  ? 'Granted'
+                                  : logging?.status ==
+                                          OnDeviceLoggingStatus.notInstalled
+                                      ? 'Install'
+                                      : 'Allow',
+                              tooltip: 'Allow on-device logging',
+                              onPressed: device.isReady
+                                  ? widget.onAllowLogging
+                                  : null,
+                            ),
                           ],
                         ),
                       ],
@@ -311,11 +339,13 @@ class _LabeledCardAction extends StatelessWidget {
     required this.glyph,
     required this.label,
     required this.onPressed,
+    this.tooltip,
   });
 
   final Widget glyph;
   final String label;
   final VoidCallback? onPressed;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -323,7 +353,7 @@ class _LabeledCardAction extends StatelessWidget {
     final enabled = onPressed != null;
 
     return Tooltip(
-      message: label,
+      message: tooltip ?? label,
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),
@@ -561,6 +591,117 @@ class _AppsGlyphPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.dark != dark ||
       oldDelegate.muted != muted;
+}
+
+/// Keyhole — one-time ADB grant for on-device logcat.
+class _AllowGlyph extends StatelessWidget {
+  const _AllowGlyph({
+    required this.color,
+    required this.enabled,
+    required this.granted,
+  });
+
+  final Color color;
+  final bool enabled;
+  final bool granted;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 30,
+      height: 30,
+      child: CustomPaint(
+        painter: _AllowGlyphPainter(
+          color: color,
+          dark: AmlTheme.isDark(context),
+          muted: !enabled,
+          granted: granted,
+        ),
+      ),
+    );
+  }
+}
+
+class _AllowGlyphPainter extends CustomPainter {
+  const _AllowGlyphPainter({
+    required this.color,
+    required this.dark,
+    required this.muted,
+    required this.granted,
+  });
+
+  final Color color;
+  final bool dark;
+  final bool muted;
+  final bool granted;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(1.2, 3.5, size.width - 2.4, size.height - 7),
+      const Radius.circular(9),
+    );
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: dark ? 0.28 : 0.16),
+            (dark ? const Color(0xFF1A1430) : Colors.white)
+                .withValues(alpha: 0.92),
+          ],
+        ).createShader(rect.outerRect),
+    );
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..color = color.withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.15,
+    );
+    final cx = size.width / 2;
+    final cy = size.height / 2 + 1;
+    if (granted) {
+      final check = Path()
+        ..moveTo(cx - 5.2, cy)
+        ..lineTo(cx - 1.6, cy + 3.4)
+        ..lineTo(cx + 5.6, cy - 3.6);
+      canvas.drawPath(
+        check,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+      return;
+    }
+    canvas.drawCircle(
+      Offset(cx, cy - 2.2),
+      3.4,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.35,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy + 3.6), width: 9.5, height: 7.2),
+        const Radius.circular(2.2),
+      ),
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _AllowGlyphPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.dark != dark ||
+      oldDelegate.muted != muted ||
+      oldDelegate.granted != granted;
 }
 
 /// Compact phone / tablet glass — frame and screen only, no fat Material glyph.

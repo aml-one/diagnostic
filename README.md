@@ -10,7 +10,7 @@ summaries to DeepSeek. Open traces in Perfetto when you need the timeline.
 
 ## Requirements
 
-- Windows 10/11 (primary), or macOS / Ubuntu when building those targets
+- Windows 10/11 (primary), or macOS Big Sur 11.7.11 or later on Intel / any later macOS on Apple Silicon, or Ubuntu when building those targets
 - A DeepSeek API key, entered once in **Settings** (OS credential store —
   never committed to this repo)
 - **adb is bundled** — you do **not** need Android Studio on PATH

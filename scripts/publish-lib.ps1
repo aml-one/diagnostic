@@ -18,6 +18,7 @@ $script:DownloadsUrl = 'https://aml.one/diagnostic-ota'
 $script:DownloadsPageUrl = 'https://aml.one/diagnostic-ota'
 
 $script:PlatformKeys = @(
+    'diagnosticAndroid',
     'diagnosticWindows',
     'diagnosticMacos',
     'diagnosticMacosIntel',
@@ -25,6 +26,7 @@ $script:PlatformKeys = @(
 )
 
 $script:ArtifactPatterns = @{
+    diagnosticAndroid    = '^diagnostic-android-arm64-v\d+\.\d+\.\d+-\d{6}\.apk$'
     diagnosticWindows    = '^diagnostic-windows-x64-v\d+\.\d+\.\d+-\d{6}\.zip$'
     diagnosticMacos      = '^diagnostic-macos-silicon-v\d+\.\d+\.\d+-\d{6}\.dmg$'
     diagnosticMacosIntel = '^diagnostic-macos-intel-v\d+\.\d+\.\d+-\d{6}\.dmg$'
@@ -165,9 +167,15 @@ function Read-ReleaseFromFilename {
         throw "'$FileName' says v1.0.0, which is what a build without the version defines produces. Rebuild through the scripts."
     }
 
+    $buildNumber = if ($Platform -eq 'diagnosticAndroid') {
+        Get-AndroidVersionCode -SemVer $semver
+    } else {
+        Get-BuildNumber -SemVer $semver
+    }
+
     return @{
         version     = $semver
-        buildNumber = Get-BuildNumber -SemVer $semver
+        buildNumber = $buildNumber
         label       = "v$semver-$buildDate"
         publishedAt = (Get-Date).ToUniversalTime().ToString('o')
     }
@@ -303,7 +311,7 @@ function Publish-ClientRelease {
     param(
         [Parameter(Mandatory)][string]$FilePath,
         [Parameter(Mandatory)][ValidateSet(
-            'diagnosticWindows', 'diagnosticMacos',
+            'diagnosticAndroid', 'diagnosticWindows', 'diagnosticMacos',
             'diagnosticMacosIntel', 'diagnosticLinux'
         )][string]$Platform,
         [string]$RemoteReleasesDir = $script:DefaultRemoteReleasesDir,

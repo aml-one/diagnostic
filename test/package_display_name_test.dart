@@ -80,7 +80,7 @@ void main() {
     expect(isAppBuilderPackage('one.aml.appbuilder.v4'), isFalse);
     expect(
       displayPackageTitle('one.aml.appbuilder.v4'),
-      'Appbuilder V4',
+      'App Builder',
     );
     expect(
       displayPackageTitle('one.aml.appbuilder.gyaloglomail_starship'),
@@ -88,9 +88,11 @@ void main() {
     );
   });
 
-  test('title-cases AOW remainder and replaces underscores', () {
-    expect(displayPackageTitle('one.aml.messageme'), 'Messageme');
-    expect(displayPackageTitle('one.aml.one_auth'), 'One Auth');
-    expect(displayPackageTitle('one.aml.securekeyboard'), 'Securekeyboard');
+  test('uses official AOW product names', () {
+    expect(displayPackageTitle('one.aml.messageme'), 'MessageMe');
+    expect(displayPackageTitle('one.aml.oneauth'), 'OneAuth');
+    expect(displayPackageTitle('one.aml.one_auth'), 'OneAuth');
+    expect(displayPackageTitle('one.aml.securekeyboard'), 'AmL Keyboard');
+    expect(displayPackageTitle('one.aml.store'), 'AmL One');
   });
 }

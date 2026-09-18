@@ -18,7 +18,7 @@ param(
 
     [Parameter(Mandatory)]
     [ValidateSet(
-        'diagnosticWindows', 'diagnosticMacos',
+        'diagnosticAndroid', 'diagnosticWindows', 'diagnosticMacos',
         'diagnosticMacosIntel', 'diagnosticLinux'
     )]
     [string]$Platform,
@@ -36,6 +36,7 @@ $RepoRoot = Split-Path $PSScriptRoot -Parent
 
 if ($Latest) {
     $prefix = switch ($Platform) {
+        'diagnosticAndroid' { 'diagnostic-android-' }
         'diagnosticWindows' { 'diagnostic-windows-' }
         'diagnosticMacos' { 'diagnostic-macos-silicon-' }
         'diagnosticMacosIntel' { 'diagnostic-macos-intel-' }

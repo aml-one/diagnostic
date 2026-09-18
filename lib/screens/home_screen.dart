@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/adb/adb_client.dart';
+import '../core/adb/on_device_logging.dart';
 import '../state/adb_providers.dart';
 import '../state/device_names_provider.dart';
 import '../state/logcat_providers.dart';
+import '../state/on_device_logging_providers.dart';
 import '../theme/desktop_theme.dart';
 import '../widgets/connect_device_pictogram.dart';
 import '../widgets/desktop_chrome.dart';
@@ -352,10 +354,44 @@ class _DeviceList extends ConsumerWidget {
                 );
               },
               onRename: () => _showRenameDialog(context, device),
+              onAllowLogging: () =>
+                  _allowOnDeviceLogging(context, ref, device),
             ),
           ),
       ],
     );
+  }
+}
+
+Future<void> _allowOnDeviceLogging(
+  BuildContext context,
+  WidgetRef ref,
+  AdbDevice device,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.showSnackBar(
+    const SnackBar(content: Text('Allowing on-device logging…')),
+  );
+  try {
+    final snap = await ref
+        .read(onDeviceLoggingServiceProvider)
+        .grant(device.serial);
+    ref.invalidate(onDeviceLoggingProvider(device.serial));
+    messenger.hideCurrentSnackBar();
+    final text = switch (snap.status) {
+      OnDeviceLoggingStatus.granted =>
+        'On-device logging granted. Open Diagnostic on the phone and tap Watch.',
+      OnDeviceLoggingStatus.notInstalled =>
+        'Install Diagnostic on the phone first, then tap Allow again.',
+      OnDeviceLoggingStatus.failed =>
+        snap.detail.isEmpty ? 'Could not grant READ_LOGS.' : snap.detail,
+      OnDeviceLoggingStatus.missing =>
+        'Grant did not stick. Check USB debugging and try again.',
+    };
+    messenger.showSnackBar(SnackBar(content: Text(text)));
+  } catch (err) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text('Grant failed: $err')));
   }
 }
 

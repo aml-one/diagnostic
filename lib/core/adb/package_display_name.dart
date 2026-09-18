@@ -34,11 +34,37 @@ PackagePickerGroup packagePickerGroup(String packageName) {
   return PackagePickerGroup.thirdParty;
 }
 
+/// Product names for official AOW packages (not the generic title-case).
+String? officialAowTitle(String packageName) {
+  const exact = <String, String>{
+    'one.aml.messageme': 'MessageMe',
+    'one.aml.oneauth': 'OneAuth',
+    'one.aml.one_auth': 'OneAuth',
+    'one.aml.securekeyboard': 'AmL Keyboard',
+    'one.aml.launcher': 'AmL Launcher',
+    'one.aml.onebrowser': 'OneBrowser',
+    'one.aml.onemail': 'One Mail',
+    'one.aml.onedrop': 'OneDrop',
+    'one.aml.gallery': 'Gallery',
+    'one.aml.store': 'AmL One',
+    'one.aml.pixx': 'pixx',
+    'one.aml.aurora': 'Aurora',
+    'one.aml.diagnostic': 'Diagnostic',
+  };
+  final mapped = exact[packageName];
+  if (mapped != null) return mapped;
+  if (isOfficialAppBuilderPackage(packageName)) return 'App Builder';
+  return null;
+}
+
 /// Title shown on Pick an app. Underscores become spaces; first letter of
 /// each word is capitalized.
 String displayPackageTitle(String packageName) {
   final name = packageName.trim();
   if (name.isEmpty) return name;
+
+  final official = officialAowTitle(name);
+  if (official != null) return official;
 
   final abPrefix = _appBuilderPrefix(name);
   if (abPrefix != null) {

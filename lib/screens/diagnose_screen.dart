@@ -9,14 +9,30 @@ import '../core/diagnosis/diagnosis_report.dart';
 import '../core/diagnosis/diagnosis_report_export.dart';
 import '../core/upload/field_report_client.dart';
 import '../core/logcat/anr_detector.dart';
+import '../core/logcat/logcat_parser.dart';
+import '../core/mobile/device_bridge.dart';
+import '../core/mobile/phone_diagnostic.dart';
 import '../core/perfetto/perfetto_models.dart';
 import '../core/perfetto/perfetto_service.dart';
+import '../screens/android/mdx_share_sheet.dart';
 import '../state/device_names_provider.dart';
 import '../state/diagnosis_controller.dart';
 import '../theme/desktop_theme.dart';
 import '../widgets/ai_diagnosis_panel.dart';
 import '../widgets/desktop_chrome.dart';
 import '../widgets/desktop_title_bar.dart';
+
+String _diagnoseAppLabel({
+  String? appLabel,
+  String? packageName,
+  String empty = 'Whole device',
+}) {
+  final name = appLabel?.trim();
+  if (name != null && name.isNotEmpty) return name;
+  final pkg = packageName?.trim();
+  if (pkg != null && pkg.isNotEmpty) return pkg;
+  return empty;
+}
 
 /// Diagnose host: runs [DiagnosisController]'s pipeline for [serial] /
 /// [packageName] (seeded by [event] when opened from an ANR banner), shows
@@ -27,12 +43,20 @@ class DiagnoseScreen extends ConsumerStatefulWidget {
     super.key,
     required this.serial,
     this.packageName,
+    this.appLabel,
     this.event,
+    this.logLines,
+    this.onDevice = false,
   });
 
   final String serial;
   final String? packageName;
+
+  /// Launcher name (e.g. MessageMe). Shown in the app bar and complete header.
+  final String? appLabel;
   final AnrEvent? event;
+  final List<LogcatLine>? logLines;
+  final bool onDevice;
 
   @override
   ConsumerState<DiagnoseScreen> createState() => _DiagnoseScreenState();
@@ -63,13 +87,19 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
   }
 
   void _start() {
-    ref
-        .read(diagnosisControllerProvider.notifier)
-        .run(
-          serial: widget.serial,
-          packageName: widget.packageName,
-          seedEvent: widget.event,
-        );
+    final notifier = ref.read(diagnosisControllerProvider.notifier);
+    if (widget.onDevice) {
+      notifier.runOnDevice(
+        packageName: widget.packageName,
+        lines: widget.logLines ?? const [],
+      );
+      return;
+    }
+    notifier.run(
+      serial: widget.serial,
+      packageName: widget.packageName,
+      seedEvent: widget.event,
+    );
   }
 
   Future<void> _export(bool asJson) async {
@@ -120,6 +150,69 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
     }
   }
 
+  Future<File> _writeMdxdFile() async {
+    final state = ref.read(diagnosisControllerProvider);
+    final report = state.report;
+    if (report == null) {
+      throw StateError('No diagnosis report');
+    }
+    Map<String, String> identity = const {};
+    Directory? dir;
+    if (widget.onDevice) {
+      identity = await deviceBridge.deviceIdentity();
+      final mdx = await deviceBridge.mdxDirectory();
+      if (mdx.isNotEmpty) dir = Directory(mdx);
+    }
+    return DiagnosisReportExport.writeMdxd(
+      report: report,
+      serial: state.serial ?? widget.serial,
+      packageName: state.packageName ?? widget.packageName,
+      appLabel: widget.appLabel,
+      brand: identity['brand'] ?? '',
+      model: identity['model'] ?? '',
+      deviceName: identity['deviceName'] ?? '',
+      manufacturer: identity['manufacturer'] ?? '',
+      anrEvents: state.anrEvents,
+      startedAt: state.startedAt,
+      finishedAt: state.finishedAt,
+      bugreportZipPath: state.bugreportResult?.zipPath,
+      bugreportExtractDir: state.bugreportResult?.extractDir,
+      perfettoTracePath: state.perfettoResult?.traceFile.path,
+      perfettoProcessorNote: state.perfettoResult?.processorNote,
+      directory: dir,
+    );
+  }
+
+  Future<void> _exportMdxd() async {
+    final report = ref.read(diagnosisControllerProvider).report;
+    if (report == null) return;
+    setState(() {
+      _exporting = true;
+      _exportMessage = null;
+    });
+    try {
+      final file = await _writeMdxdFile();
+      if (!mounted) return;
+      setState(() {
+        _exporting = false;
+        _exportMessage = 'Saved ${file.path}';
+      });
+      if (widget.onDevice) {
+        await offerMdxActions(
+          context,
+          path: file.path,
+          applicationId: widget.packageName ?? kDiagnosticAndroidPackage,
+        );
+      }
+    } catch (err) {
+      if (!mounted) return;
+      setState(() {
+        _exporting = false;
+        _exportMessage = 'Could not save .mdxd: $err';
+      });
+    }
+  }
+
   Future<void> _sendToAppBuilder() async {
     final state = ref.read(diagnosisControllerProvider);
     final report = state.report;
@@ -166,11 +259,18 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
         perfettoProcessorNote: state.perfettoResult?.processorNote,
       );
 
-      File? bugreportZip;
-      final zipPath = state.bugreportResult?.zipPath;
-      if (zipPath != null && zipPath.isNotEmpty) {
-        final file = File(zipPath);
-        if (await file.exists()) bugreportZip = file;
+      File? attachment;
+      try {
+        attachment = await _writeMdxdFile();
+      } catch (_) {
+        attachment = null;
+      }
+      if (attachment == null) {
+        final zipPath = state.bugreportResult?.zipPath;
+        if (zipPath != null && zipPath.isNotEmpty) {
+          final file = File(zipPath);
+          if (await file.exists()) attachment = file;
+        }
       }
 
       final result = await _fieldReports.upload(
@@ -179,8 +279,12 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
         title: topFindingFor(report),
         deviceSerial: serial,
         textBody: markdown,
-        payloadJson: payload,
-        attachment: bugreportZip,
+        payloadJson: {
+          ...payload,
+          'format': 'mdxd',
+          'magic': kMdxdMagic,
+        },
+        attachment: attachment,
       );
 
       if (!mounted) return;
@@ -235,6 +339,12 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
     setState(() => _exportMessage = launch.instruction);
   }
 
+  String get _pageTitle {
+    final name = widget.appLabel?.trim();
+    if (name == null || name.isEmpty) return 'Diagnose';
+    return 'Diagnose · $name';
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(diagnosisControllerProvider);
@@ -245,7 +355,7 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
       // Desk.formWidth so a maximized Windows window still shows clear
       // empty margin on both sides.
       return SettingsPageScaffold(
-        title: 'Diagnose',
+        title: _pageTitle,
         showBackButton: !kDesktopCustomTitleBar,
         embedInParentAmbient: kDesktopCustomTitleBar,
         body: Center(
@@ -259,6 +369,8 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
                   state: state,
                   fallbackSerial: widget.serial,
                   fallbackPackageName: widget.packageName,
+                  fallbackAppLabel: widget.appLabel,
+                  onDevice: widget.onDevice,
                   onCancel: () {
                     ref.read(diagnosisControllerProvider.notifier).cancel();
                     if (context.mounted) Navigator.of(context).maybePop();
@@ -272,7 +384,7 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
       );
     }
     return SettingsPageScaffold(
-      title: 'Diagnose',
+      title: _pageTitle,
       showBackButton: !kDesktopCustomTitleBar,
       embedInParentAmbient: kDesktopCustomTitleBar,
       body: ListView(
@@ -283,10 +395,13 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
               state: state,
               fallbackSerial: widget.serial,
               fallbackPackageName: widget.packageName,
+              fallbackAppLabel: widget.appLabel,
+              onDevice: widget.onDevice,
               exporting: _exporting,
               sendingToAppBuilder: _sendingToAppBuilder,
               exportMessage: _exportMessage,
               onExport: _export,
+              onExportMdxd: _exportMdxd,
               onSendToAppBuilder: _sendToAppBuilder,
               onOpenPerfetto: _openInPerfetto,
               onRunAgain: _start,
@@ -333,13 +448,17 @@ class _ProgressPanel extends ConsumerWidget {
     required this.fallbackPackageName,
     required this.onCancel,
     required this.onRetry,
+    this.fallbackAppLabel,
+    this.onDevice = false,
   });
 
   final DiagnosisState state;
   final String fallbackSerial;
   final String? fallbackPackageName;
+  final String? fallbackAppLabel;
   final VoidCallback onCancel;
   final VoidCallback onRetry;
+  final bool onDevice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -347,9 +466,10 @@ class _ProgressPanel extends ConsumerWidget {
     final serial = state.serial ?? fallbackSerial;
     final packageName = state.packageName ?? fallbackPackageName;
     final deviceLabel = resolveSerialLabel(names, serial);
-    final packageLabel = (packageName == null || packageName.trim().isEmpty)
-        ? 'Whole device'
-        : packageName.trim();
+    final packageLabel = _diagnoseAppLabel(
+      appLabel: fallbackAppLabel,
+      packageName: packageName,
+    );
     final elapsed = state.elapsed;
     final elapsedLabel = elapsed == null
         ? null
@@ -359,7 +479,7 @@ class _ProgressPanel extends ConsumerWidget {
     final steps = <_StepInfo>[
       _StepInfo(
         DiagnosisStep.scanningLogcat,
-        'Scan logcat for ANRs',
+        onDevice ? 'Dump live logcat' : 'Scan logcat for ANRs',
         Icons.subject_rounded,
         true,
       ),
@@ -367,19 +487,19 @@ class _ProgressPanel extends ConsumerWidget {
         DiagnosisStep.dumpsys,
         'Dumpsys gfx / mem / cpu',
         Icons.speed_rounded,
-        state.includeDumpsys && state.packageName != null,
+        state.includeDumpsys,
       ),
       _StepInfo(
         DiagnosisStep.bugreport,
         'Pull bugreport',
         Icons.description_rounded,
-        true,
+        state.includeBugreport,
       ),
       _StepInfo(
         DiagnosisStep.parsing,
         'Parse ANR traces',
         Icons.manage_search_rounded,
-        true,
+        state.includeBugreport,
       ),
       _StepInfo(
         DiagnosisStep.perfetto,
@@ -732,21 +852,27 @@ class _ReportView extends ConsumerWidget {
     required this.sendingToAppBuilder,
     required this.exportMessage,
     required this.onExport,
+    required this.onExportMdxd,
     required this.onSendToAppBuilder,
     required this.onOpenPerfetto,
     required this.onRunAgain,
+    this.fallbackAppLabel,
+    this.onDevice = false,
   });
 
   final DiagnosisState state;
   final String fallbackSerial;
   final String? fallbackPackageName;
+  final String? fallbackAppLabel;
   final bool exporting;
   final bool sendingToAppBuilder;
   final String? exportMessage;
   final void Function(bool asJson) onExport;
+  final VoidCallback onExportMdxd;
   final VoidCallback onSendToAppBuilder;
   final VoidCallback onOpenPerfetto;
   final VoidCallback onRunAgain;
+  final bool onDevice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -774,8 +900,12 @@ class _ReportView extends ConsumerWidget {
             title: 'Diagnosis complete',
             subtitle: [
               resolveSerialLabel(names, serial),
-              state.packageName ?? 'no package',
-              if (elapsed != null) '${elapsed.inSeconds}s',
+              _diagnoseAppLabel(
+                appLabel: fallbackAppLabel,
+                packageName: packageName,
+                empty: 'no package',
+              ),
+              if (elapsed != null) formatDiagnosisElapsed(elapsed),
             ].where((s) => s.isNotEmpty).join('  ·  '),
             trailing: DesktopIconAction(
               tooltip: 'Run again',
@@ -787,15 +917,32 @@ class _ReportView extends ConsumerWidget {
         const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 680 ? 4 : 2;
-            return GridView.count(
-              crossAxisCount: columns,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: columns == 4 ? 1.55 : 1.9,
-              children: [
+            final maxW = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : 400.0;
+            final columns = maxW >= 680 ? 4 : 2;
+            const gap = 10.0;
+            final cards = <Widget>[
+              if (onDevice) ...[
+                _StatCard(
+                  icon: Icons.error_outline_rounded,
+                  accent: AmlTheme.pink,
+                  label: 'Errors',
+                  value: '${report.errorLines}',
+                ),
+                _StatCard(
+                  icon: Icons.warning_amber_rounded,
+                  accent: AmlTheme.amber,
+                  label: 'Warnings',
+                  value: '${report.warningLines}',
+                ),
+                _StatCard(
+                  icon: Icons.subject_rounded,
+                  accent: AmlTheme.sky,
+                  label: 'Lines scanned',
+                  value: '${report.scannedLines}',
+                ),
+              ] else ...[
                 _StatCard(
                   icon: Icons.warning_amber_rounded,
                   accent: AmlTheme.pink,
@@ -817,28 +964,56 @@ class _ReportView extends ConsumerWidget {
                   icon: Icons.memory_rounded,
                   accent: AmlTheme.sky,
                   label: 'Total PSS',
-                  value: pssMb == null ? '—' : '${pssMb.toStringAsFixed(0)} MB',
+                  value: pssMb == null
+                      ? '—'
+                      : '${pssMb.toStringAsFixed(0)} MB',
                 ),
-                _StatCard(
-                  icon: Icons.priority_high_rounded,
-                  accent: AmlTheme.violet,
-                  label: 'Top finding',
-                  value: state.topFinding,
-                  valueFontSize: 12.5,
-                  valueMaxLines: 3,
-                ),
+              ],
+              _StatCard(
+                icon: Icons.priority_high_rounded,
+                accent: AmlTheme.violet,
+                label: 'Top finding',
+                value: state.topFinding,
+                valueFontSize: 12.5,
+                valueMaxLines: 3,
+              ),
+            ];
+            return Column(
+              children: [
+                for (var i = 0; i < cards.length; i += columns) ...[
+                  if (i > 0) const SizedBox(height: gap),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var j = 0;
+                            j < columns && i + j < cards.length;
+                            j++) ...[
+                          if (j > 0) const SizedBox(width: gap),
+                          Expanded(child: cards[i + j]),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ],
             );
           },
         ),
         const SizedBox(height: 10),
-        _AnrStackViewer(report: report),
-        const SizedBox(height: 10),
-        _PerfettoSection(
-          report: report,
-          tracePath: state.perfettoResult?.traceFile.path,
-          onOpen: onOpenPerfetto,
-        ),
+        if (onDevice) _WatchHighlights(report: report),
+        if (!onDevice || report.mainThreadFrames.isNotEmpty) ...[
+          if (onDevice) const SizedBox(height: 10),
+          _AnrStackViewer(report: report),
+        ],
+        if (!onDevice) ...[
+          const SizedBox(height: 10),
+          _PerfettoSection(
+            report: report,
+            tracePath: state.perfettoResult?.traceFile.path,
+            onOpen: onOpenPerfetto,
+          ),
+        ],
         const SizedBox(height: 10),
         DesktopPanel(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -850,23 +1025,29 @@ class _ReportView extends ConsumerWidget {
                 accent: AmlTheme.mint,
                 title: 'Save report',
                 subtitle:
-                    'Writes to your Documents folder under diagnostic-reports.',
+                    'Writes a .mdxd capture you can send in MessageMe or App Builder.',
               ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  FilledButton.icon(
+                    onPressed: exporting ? null : onExportMdxd,
+                    icon: const Icon(Icons.troubleshoot_rounded, size: 16),
+                    label: const Text('Export .mdxd'),
+                  ),
                   OutlinedButton.icon(
                     onPressed: exporting ? null : () => onExport(false),
                     icon: const Icon(Icons.description_outlined, size: 16),
                     label: const Text('Export .md'),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: exporting ? null : () => onExport(true),
                     icon: const Icon(Icons.data_object_rounded, size: 16),
                     label: const Text('Export .json'),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: (exporting ||
                             sendingToAppBuilder ||
@@ -876,14 +1057,12 @@ class _ReportView extends ConsumerWidget {
                     icon: const Icon(Icons.cloud_upload_outlined, size: 16),
                     label: const Text('Send to App Builder'),
                   ),
-                  if (exporting || sendingToAppBuilder) ...[
-                    const SizedBox(width: 12),
+                  if (exporting || sendingToAppBuilder)
                     const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  ],
                 ],
               ),
               if (exportMessage != null) ...[
@@ -896,8 +1075,10 @@ class _ReportView extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        AiDiagnosisPanel(report: report),
+        if (!onDevice) ...[
+          const SizedBox(height: 10),
+          AiDiagnosisPanel(report: report),
+        ],
       ],
     );
   }
@@ -926,7 +1107,14 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = AmlTheme.inkOf(context);
     final muted = AmlTheme.mutedOf(context);
-    return DesktopPanel(
+    return Container(
+      alignment: Alignment.topLeft,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Desk.panelFill(context),
+        borderRadius: BorderRadius.circular(Desk.panel),
+        border: Border.all(color: Desk.hairline(context)),
+      ),
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,7 +1133,7 @@ class _StatCard extends StatelessWidget {
               ),
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 8),
           Text(
             value,
             maxLines: valueMaxLines,
@@ -964,6 +1152,61 @@ class _StatCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 11, color: muted),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WatchHighlights extends StatelessWidget {
+  const _WatchHighlights({required this.report});
+
+  final DiagnosisReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AmlTheme.mutedOf(context);
+    final lines = report.logcatContext;
+    final extra = report.logFindings.length > 1
+        ? report.logFindings.skip(1).toList()
+        : const <String>[];
+    return DesktopPanel(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DesktopPanelHeader(
+            icon: Icons.manage_search_rounded,
+            accent: AmlTheme.violet,
+            title: 'Log highlights',
+            subtitle: lines.isEmpty
+                ? 'Nothing noisy in this Watch buffer.'
+                : '${lines.length} recent error or warning line'
+                    '${lines.length == 1 ? '' : 's'}',
+          ),
+          if (extra.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final finding in extra)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  finding,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                    color: muted,
+                  ),
+                ),
+              ),
+          ],
+          if (lines.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SelectableText(
+              lines.join('\n'),
+              style: Desk.mono(size: 11.5, color: AmlTheme.inkOf(context)),
+            ),
+          ],
         ],
       ),
     );

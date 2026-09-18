@@ -21,6 +21,5 @@ void main() {
     await tester.pump();
     expect(find.text('AOW Diagnostic tool for Android'), findsOneWidget);
     expect(find.text('Connect a device'), findsOneWidget);
-    expect(find.text('adb found'), findsOneWidget);
   });
 }

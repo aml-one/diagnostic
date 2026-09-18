@@ -38,6 +38,7 @@ if [[ -f "$XCCONFIG" ]] && ! grep -q 'AML_FORCE_X86_64' "$XCCONFIG"; then
 ARCHS = x86_64
 ONLY_ACTIVE_ARCH = YES
 EXCLUDED_ARCHS = arm64
+MACOSX_DEPLOYMENT_TARGET = 11.0
 EOF
 fi
 
@@ -59,6 +60,10 @@ fi
 [[ -d "$APP" ]] || { echo "ERROR: .app not found"; exit 1; }
 
 EXEC_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")"
+# Finder uses this for "not supported on this Mac". Intel floor is Big Sur.
+/usr/libexec/PlistBuddy -c 'Set :LSMinimumSystemVersion 11.0' "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Delete :LSFileQuarantineEnabled' "$APP/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c 'Add :LSFileQuarantineEnabled bool false' "$APP/Contents/Info.plist"
 EXEC="$APP/Contents/MacOS/$EXEC_NAME"
 ARCHS="$(lipo -archs "$EXEC" 2>/dev/null || true)"
 echo "==> Binary archs: $ARCHS"
@@ -76,6 +81,13 @@ codesign --force --deep --sign - "$APP" 2>/dev/null || true
 STAGE="$(mktemp -d /tmp/aow-diag-dmg.XXXXXX)"
 cp -R "$APP" "$STAGE/AOW Diagnostic.app"
 ln -s /Applications "$STAGE/Applications"
+cat > "$STAGE/How to open.txt" <<'EOF'
+If macOS says it cannot check this app:
+
+1. Drag the app into Applications.
+2. Control-click it (two-finger click).
+3. Choose Open, then Open again.
+EOF
 
 # Same branding mark as the volume icon in Finder / Desktop.
 cp -f "$ICNS" "$STAGE/.VolumeIcon.icns"

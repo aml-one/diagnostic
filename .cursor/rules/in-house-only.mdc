@@ -1,20 +1,18 @@
 ---
-description: AmL Diagnostic is an official AmL One shelf listing (desktop OTA)
+description: AmL Diagnostic is an official AmL One shelf listing
 alwaysApply: true
 ---
 
 # AmL Diagnostic is a store app
 
-AmL Diagnostic is on the **AmL One official shelf**. Desktop OTA lives at
-`https://aml.one/diagnostic-ota/`. There is no Android APK; GET on the phone
-shows the listing without an install. Windows, Linux, and macOS GET the
-zip / `.deb` / DMG.
+AmL Diagnostic is on the **AmL One official shelf** with **Android** and
+desktop clients. OTA lives at `https://aml.one/diagnostic-ota/`.
 
 ```
 ✅ OFFICIAL_LISTINGS / catalog.ts row `diagnostic`
 ✅ Store icon `diagnostic.png` and app-info copy
+✅ Android package `one.aml.diagnostic` / platform key `diagnosticAndroid`
 ✅ Frankfurt OTA (`/diagnostic-ota/`) when they ask to publish
-❌ POST /api/publish/android (there is no Diagnostic APK)
 ❌ Listing Icon Tool
 ```
 

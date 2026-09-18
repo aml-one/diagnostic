@@ -3,6 +3,7 @@ import '../logcat/anr_detector.dart';
 import '../logcat/logcat_parser.dart';
 import '../perf/dumpsys_snapshot.dart';
 import '../perfetto/perfetto_models.dart';
+import 'watch_log_summary.dart';
 
 /// Assembled ANR / perf snapshot for the report UI and DeepSeek.
 ///
@@ -28,6 +29,10 @@ class DiagnosisReport {
     this.perfettoFindings = const [],
     this.processorNote,
     this.logcatContext = const [],
+    this.scannedLines = 0,
+    this.errorLines = 0,
+    this.warningLines = 0,
+    this.logFindings = const [],
   });
 
   final String? packageName;
@@ -49,6 +54,12 @@ class DiagnosisReport {
   final String? processorNote;
   final List<String> logcatContext;
 
+  /// Watch-buffer stats (phone Diagnose). Zero on a desktop ANR capture.
+  final int scannedLines;
+  final int errorLines;
+  final int warningLines;
+  final List<String> logFindings;
+
   bool get hasEvidence =>
       (anrReason != null && anrReason!.trim().isNotEmpty) ||
       (process != null && process!.trim().isNotEmpty) ||
@@ -62,7 +73,9 @@ class DiagnosisReport {
       (memSummary != null && memSummary!.trim().isNotEmpty) ||
       (gfxSummary != null && gfxSummary!.trim().isNotEmpty) ||
       perfettoFindings.isNotEmpty ||
-      logcatContext.isNotEmpty;
+      logcatContext.isNotEmpty ||
+      scannedLines > 0 ||
+      logFindings.isNotEmpty;
 
   factory DiagnosisReport.fromAnrEvent(
     AnrEvent event, {
@@ -113,6 +126,7 @@ class DiagnosisReport {
     MemInfoSnapshot? mem,
     CpuInfoSnapshot? cpu,
     PerfettoCaptureResult? perfetto,
+    WatchLogSummary? watchLogs,
   }) {
     final preferred = anr ?? bugreport?.preferredAnr(packageName);
     final main = preferred?.threads.where((t) => t.isMain).toList();
@@ -139,12 +153,18 @@ class DiagnosisReport {
       gfx: gfx,
       mem: mem,
       cpu: cpu,
-      cpuSummary: bugreport?.cpuSummary,
-      memSummary: bugreport?.memSummary,
-      gfxSummary: bugreport?.gfxSummary,
+      cpuSummary: bugreport?.cpuSummary ?? dumpsysCpuSummary(cpu),
+      memSummary: bugreport?.memSummary ?? dumpsysMemSummary(mem),
+      gfxSummary: bugreport?.gfxSummary ?? dumpsysGfxSummary(gfx),
       perfettoFindings: perfetto?.findings ?? const [],
       processorNote: perfetto?.processorNote,
-      logcatContext: event?.context.map(formatLogcatLine).toList() ?? const [],
+      logcatContext: (event != null && event.context.isNotEmpty)
+          ? event.context.map(formatLogcatLine).toList()
+          : (watchLogs?.highlights ?? const []),
+      scannedLines: watchLogs?.lineCount ?? 0,
+      errorLines: watchLogs?.errorCount ?? 0,
+      warningLines: watchLogs?.warningCount ?? 0,
+      logFindings: watchLogs?.findings ?? const [],
     );
   }
 }
@@ -158,6 +178,14 @@ String formatLogcatLine(LogcatLine line) {
   final tag = line.tag.isEmpty ? '' : '${line.tag}: ';
   final level = line.level.isEmpty ? '' : '${line.level} ';
   return '$level$tag${line.message}'.trim();
+}
+
+/// Wall time for Diagnose, with milliseconds so a 134ms run is `0.134 s`
+/// instead of `0s`.
+String formatDiagnosisElapsed(Duration elapsed) {
+  final seconds = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
+  final clamped = seconds < 0 ? 0.0 : seconds;
+  return '${clamped.toStringAsFixed(3)} s';
 }
 
 String? _firstNonEmpty(List<String?> values) {

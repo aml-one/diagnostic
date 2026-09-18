@@ -134,6 +134,13 @@ package_dmg() {
   stage="$(mktemp -d /tmp/aow-diag-dmg.XXXXXX)"
   ditto "$app" "$stage/AOW Diagnostic.app"
   ln -s /Applications "$stage/Applications"
+  cat > "$stage/How to open.txt" <<'EOF'
+If macOS says it cannot check this app:
+
+1. Drag the app into Applications.
+2. Control-click it (two-finger click).
+3. Choose Open, then Open again.
+EOF
   if [[ -f "$icns" ]]; then
     cp -f "$icns" "$stage/.VolumeIcon.icns"
     if command -v SetFile >/dev/null 2>&1; then
@@ -185,6 +192,7 @@ build_one() {
     ARCHS="$arch" \
     ONLY_ACTIVE_ARCH=YES \
     EXCLUDED_ARCHS="$other" \
+    MACOSX_DEPLOYMENT_TARGET=11.0 \
     CODE_SIGNING_ALLOWED=NO \
     build
   local products="$dd/Build/Products/Release"
@@ -199,6 +207,9 @@ build_one() {
   local got
   got="$(lipo -archs "$executable")"
   [[ "$got" == "$arch" ]] || { echo "Expected $arch, got: $got ($executable)" >&2; exit 1; }
+  /usr/libexec/PlistBuddy -c 'Set :LSMinimumSystemVersion 11.0' "$app/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c 'Delete :LSFileQuarantineEnabled' "$app/Contents/Info.plist" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c 'Add :LSFileQuarantineEnabled bool false' "$app/Contents/Info.plist"
   local icns="$app/Contents/Resources/AppIcon.icns"
   [[ -f "$icns" ]] || { echo "ERROR: AppIcon.icns missing from $app" >&2; exit 1; }
   codesign --force --deep --sign - "$app" 2>/dev/null || true

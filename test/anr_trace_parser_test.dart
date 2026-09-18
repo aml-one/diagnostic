@@ -123,4 +123,23 @@ CPU usage from 100ms to 200ms ago:
     expect(cpuSnap.top.first.percent, 48);
     expect(cpuSnap.top.first.pid, 4321);
   });
+
+  test('dumpsysLooksDenied catches a Permission Denial dump', () {
+    expect(
+      dumpsysLooksDenied(
+        "Permission Denial: can't dump gfxinfo from from pid=12, uid=10123",
+      ),
+      isTrue,
+    );
+    expect(dumpsysLooksDenied(''), isFalse);
+    expect(
+      dumpsysGfxSummary(
+        parseGfxInfo(
+          "Permission Denial: can't dump gfxinfo from from pid=12, uid=10123",
+          package: 'one.aml.messageme',
+        ),
+      ),
+      isNull,
+    );
+  });
 }

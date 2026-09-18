@@ -1,7 +1,7 @@
 name: diagnostic
 description: AOW Diagnostic tool for Android — ANR and performance diagnostics
 publish_to: 'none'
-version: 1.0.3+10003
+version: 1.0.4+10004
 
 environment:
   sdk: ^3.11.4
@@ -31,7 +31,11 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:
+  android: "ic_launcher_v4"
   image_path: "assets/branding/app_icon_light.png"
+  image_path_android: "assets/branding/app_icon_launcher.png"
+  # Transparent light master on Windows. Android uses an opaque full-bleed
+  # plate so HyperOS cannot paint the master's corner padding white.
   windows:
     generate: true
     image_path: "assets/branding/app_icon_light.png"

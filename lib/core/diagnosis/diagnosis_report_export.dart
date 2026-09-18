@@ -4,7 +4,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../app_version.dart';
 import '../logcat/anr_detector.dart';
+import '../mobile/mdx_file.dart';
+import '../mobile/phone_diagnostic.dart';
 import 'diagnosis_report.dart';
 
 /// Writes a completed [DiagnosisReport] to
@@ -48,6 +51,80 @@ class DiagnosisReportExport {
       perfettoProcessorNote: perfettoProcessorNote,
     );
     await file.writeAsString(text);
+    return file;
+  }
+
+  /// Diagnose envelope: JSON header (`MDXD1`) + JSON body. Same family as `.mdx`.
+  static Future<File> writeMdxd({
+    required DiagnosisReport report,
+    required String serial,
+    String? packageName,
+    String? appLabel,
+    String brand = '',
+    String model = '',
+    String deviceName = '',
+    String manufacturer = '',
+    List<AnrEvent> anrEvents = const [],
+    DateTime? startedAt,
+    DateTime? finishedAt,
+    String? bugreportZipPath,
+    String? bugreportExtractDir,
+    String? perfettoTracePath,
+    String? perfettoProcessorNote,
+    Directory? directory,
+  }) async {
+    final file = directory == null
+        ? await _targetFile(
+            serial: serial,
+            packageName: packageName,
+            extension: 'mdxd',
+          )
+        : File(
+            p.join(
+              directory.path,
+              '${_safe(packageName ?? serial)}_${DateTime.now().millisecondsSinceEpoch}.mdxd',
+            ),
+          );
+    await file.parent.create(recursive: true);
+    final payload = buildPayloadMap(
+      report: report,
+      serial: serial,
+      packageName: packageName,
+      anrEvents: anrEvents,
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+      bugreportZipPath: bugreportZipPath,
+      bugreportExtractDir: bugreportExtractDir,
+      perfettoTracePath: perfettoTracePath,
+      perfettoProcessorNote: perfettoProcessorNote,
+    );
+    if (appLabel != null && appLabel.trim().isNotEmpty) {
+      payload['appLabel'] = appLabel.trim();
+    }
+    if (brand.isNotEmpty) payload['brand'] = brand;
+    if (model.isNotEmpty) payload['model'] = model;
+    if (deviceName.isNotEmpty) payload['deviceName'] = deviceName;
+    final header = MdxHeader(
+      magic: kMdxdMagic,
+      toolVersion: kAppVersion,
+      device: model.isNotEmpty ? model : serial,
+      manufacturer: manufacturer,
+      brand: brand,
+      model: model.isNotEmpty ? model : serial,
+      deviceName: deviceName.isNotEmpty ? deviceName : serial,
+      appLabel: appLabel?.trim() ?? '',
+      packages: [
+        if (packageName != null && packageName.trim().isNotEmpty)
+          packageName.trim(),
+      ],
+      levels: 'diagnosis',
+      startedAt: startedAt?.toIso8601String() ?? DateTime.now().toUtc().toIso8601String(),
+      stoppedAt: finishedAt?.toIso8601String(),
+      source: 'diagnosis',
+    );
+    await file.writeAsString(
+      composeMdx(header: header, body: jsonEncode(payload)),
+    );
     return file;
   }
 
@@ -206,6 +283,7 @@ class DiagnosisReportExport {
 String topFindingFor(DiagnosisReport report) {
   final reason = report.anrReason?.trim();
   if (reason != null && reason.isNotEmpty) return reason;
+  if (report.logFindings.isNotEmpty) return report.logFindings.first;
   if (report.perfettoFindings.isNotEmpty) {
     final sorted = [...report.perfettoFindings]
       ..sort((a, b) => b.severity.index.compareTo(a.severity.index));
@@ -239,13 +317,23 @@ String _renderMarkdown({
   }
   if (startedAt != null && finishedAt != null) {
     buf.writeln(
-      '- Elapsed: ${finishedAt.difference(startedAt).inSeconds}s',
+      '- Elapsed: ${formatDiagnosisElapsed(finishedAt.difference(startedAt))}',
     );
   }
   buf.writeln();
   buf.writeln('## Top finding');
   buf.writeln(topFindingFor(report));
   buf.writeln();
+  if (report.scannedLines > 0 || report.logFindings.isNotEmpty) {
+    buf.writeln('## Watch logs');
+    buf.writeln('- Lines scanned: ${report.scannedLines}');
+    buf.writeln('- Errors: ${report.errorLines}');
+    buf.writeln('- Warnings: ${report.warningLines}');
+    for (final finding in report.logFindings) {
+      buf.writeln('- $finding');
+    }
+    buf.writeln();
+  }
   if (report.hasEvidence) {
     buf.writeln('## ANR');
     if (report.anrReason != null) {

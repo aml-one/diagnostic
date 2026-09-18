@@ -180,6 +180,55 @@ String _cap(String text) {
   return text.substring(0, _excerptCap);
 }
 
+/// Phone Diagnose cannot read another app's gfx/mem/cpu dumpsys without
+/// root. Desktop Diagnose over USB still can.
+const kOnDeviceLighterDiagnosis =
+    'This is a lighter diagnosis which an unrooted phone allows us to do. For more thorough diagnostics use the Desktop app.';
+
+bool dumpsysLooksDenied(String stdout) {
+  final text = stdout.toLowerCase();
+  return text.contains('permission denial') ||
+      text.contains("can't dump") ||
+      text.contains('cannot dump') ||
+      text.contains('security exception');
+}
+
+String? dumpsysGfxSummary(GfxInfoSnapshot? gfx) {
+  if (gfx == null) return null;
+  if (gfx.totalFrames != null) {
+    final janky = gfx.jankyFrames ?? 0;
+    final percent = gfx.jankyPercent;
+    final pct = percent == null ? '' : ' (${percent.toStringAsFixed(1)}%)';
+    return '${gfx.totalFrames} frames, $janky janky$pct';
+  }
+  if (dumpsysLooksDenied(gfx.rawExcerpt)) return null;
+  final first = gfx.rawExcerpt.trim().split('\n').firstWhere(
+        (line) => line.trim().isNotEmpty,
+        orElse: () => '',
+      );
+  return first.isEmpty ? null : first;
+}
+
+String? dumpsysMemSummary(MemInfoSnapshot? mem) {
+  if (mem == null) return null;
+  if (mem.totalPssKb != null) {
+    return 'Total PSS ${mem.totalPssKb} kB';
+  }
+  if (dumpsysLooksDenied(mem.rawExcerpt)) return null;
+  return null;
+}
+
+String? dumpsysCpuSummary(CpuInfoSnapshot? cpu) {
+  if (cpu == null) return null;
+  if (cpu.load != null && cpu.load!.trim().isNotEmpty) return cpu.load;
+  if (cpu.top.isNotEmpty) {
+    final first = cpu.top.first;
+    return '${first.percent.toStringAsFixed(1)}% ${first.name}';
+  }
+  if (dumpsysLooksDenied(cpu.rawExcerpt)) return null;
+  return null;
+}
+
 final _totalFrames = RegExp(r'^Total frames rendered:\s*(\d+)');
 final _jankyFrames = RegExp(
   r'^Janky frames:\s*(\d+)\s*\(\s*([0-9.]+)\s*%\s*\)',

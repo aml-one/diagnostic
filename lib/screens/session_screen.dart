@@ -23,6 +23,7 @@ import '../state/package_providers.dart';
 import '../theme/desktop_theme.dart';
 import '../widgets/desktop_chrome.dart';
 import '../widgets/desktop_title_bar.dart';
+import '../widgets/logcat_row.dart';
 import '../widgets/onedrop_watch_panel.dart';
 import 'diagnose_screen.dart';
 
@@ -993,7 +994,7 @@ class _LogPane extends StatelessWidget {
                   cacheExtent: 240,
                   itemBuilder: (context, index) {
                     final row = lines[index];
-                    return _LogRow(
+                    return LogcatRow(
                       line: row.line,
                       dimmed: row.dimmed,
                       zebra: index.isOdd,
@@ -1001,69 +1002,6 @@ class _LogPane extends StatelessWidget {
                   },
                 ),
               ),
-      ),
-    );
-  }
-}
-
-class _LogRow extends StatelessWidget {
-  const _LogRow({
-    required this.line,
-    required this.dimmed,
-    required this.zebra,
-  });
-
-  final LogcatLine line;
-  final bool dimmed;
-  final bool zebra;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Desk.levelColor(line.level);
-    final fade = dimmed ? 0.45 : 1.0;
-    final ink = AmlTheme.inkOf(context).withValues(alpha: fade);
-    final muted = AmlTheme.mutedOf(context).withValues(alpha: 0.85 * fade);
-    final message = line.message.isEmpty ? line.raw : line.message;
-
-    return Container(
-      color: zebra ? Desk.zebra(context) : null,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      alignment: Alignment.centerLeft,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 72,
-            child: Text(
-              _timeLabel(line.timestamp),
-              maxLines: 1,
-              style: Desk.mono(size: 10.5, color: muted),
-            ),
-          ),
-          _LevelMarker(level: line.level, color: accent, fade: fade),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 132,
-            child: Text(
-              line.tag,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Desk.mono(
-                size: 11,
-                weight: FontWeight.w700,
-                color: accent.withValues(alpha: fade),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Desk.mono(size: 11.5, color: ink),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1122,7 +1060,7 @@ class _LevelFilterChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _LevelMarker(level: level, color: color, fade: fade),
+              LogcatLevelMarker(level: level, color: color, fade: fade),
               const SizedBox(width: 5),
               Text(
                 label,
@@ -1138,50 +1076,6 @@ class _LevelFilterChip extends StatelessWidget {
       ),
     );
   }
-}
-
-class _LevelMarker extends StatelessWidget {
-  const _LevelMarker({
-    required this.level,
-    required this.color,
-    required this.fade,
-  });
-
-  final String level;
-  final Color color;
-  final double fade;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 15,
-      height: 15,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18 * fade),
-        borderRadius: BorderRadius.circular(Desk.tag),
-        border: Border.all(color: color.withValues(alpha: 0.34 * fade)),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        level.isEmpty ? '·' : level,
-        style: Desk.mono(
-          size: 9.5,
-          weight: FontWeight.w800,
-          height: 1,
-          color: color.withValues(alpha: fade),
-        ),
-      ),
-    );
-  }
-}
-
-String _timeLabel(DateTime? stamp) {
-  if (stamp == null) return '';
-  final h = stamp.hour.toString().padLeft(2, '0');
-  final m = stamp.minute.toString().padLeft(2, '0');
-  final s = stamp.second.toString().padLeft(2, '0');
-  final ms = stamp.millisecond.toString().padLeft(3, '0');
-  return '$h:$m:$s.$ms';
 }
 
 class _AnrBanner extends StatelessWidget {

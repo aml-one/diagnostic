@@ -11,9 +11,9 @@ AmL Diagnostic is an in-house Windows Flutter tool for Android ADB ANR and
 performance diagnosis. Pull bugreports and traces over adb, unzip locally,
 summarize with DeepSeek, open Perfetto.
 
-**In-house only.** It never goes on AmL One, downloads.aml.one, or any public
-shelf. Local Windows exe for studio use. A **publish** ask here means graphify
-+ GitHub, never a store listing.
+**Official AmL One listing.** Phone Watch plus desktop USB desk. OTA at
+`https://aml.one/diagnostic-ota/`. A **publish** / **put it on the store**
+ask here means Android + desktop OTA, AmL One deploy, graphify, and GitHub.
 
 - Windows holds `Global\AmLDiagnosticSingleInstance`. A second launch focuses
   the existing window and exits. Do not start extra copies when rebuilding —

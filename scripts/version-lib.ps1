@@ -65,6 +65,13 @@ function Get-BuildNumber {
     return ([int]$parts[0] * 10000) + ([int]$parts[1] * 100) + [int]$parts[2]
 }
 
+# Android versionCode must stay above phone sideloads (12020). Desktop OTA still
+# uses Get-BuildNumber. Store GET compares this number to PackageInfo.versionCode.
+function Get-AndroidVersionCode {
+    param([string]$SemVer)
+    return 12000 + (Get-BuildNumber -SemVer $SemVer)
+}
+
 function Get-BuildLabel {
     param(
         [string]$SemVer,
@@ -224,7 +231,7 @@ function Test-VersionFullyPublished {
     if (-not (Test-Path -LiteralPath $manifestPath)) { return $false }
 
     $doc = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    foreach ($key in @('diagnosticWindows', 'diagnosticLinux', 'diagnosticMacos', 'diagnosticMacosIntel')) {
+    foreach ($key in @('diagnosticAndroid', 'diagnosticWindows', 'diagnosticLinux', 'diagnosticMacos', 'diagnosticMacosIntel')) {
         $block = $doc.$key
         if (-not $block -or [string]$block.version -ne $SemVer) { return $false }
     }

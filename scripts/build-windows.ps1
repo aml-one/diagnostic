@@ -61,7 +61,7 @@ try {
         Write-Host 'Reusing the existing release build.' -ForegroundColor Yellow
     } else {
         Write-Step 'flutter_launcher_icons'
-        & dart run flutter_launcher_icons
+        & (Join-Path $PSScriptRoot 'apply-app-icon.ps1')
         Write-Step "flutter build windows --release"
         & $flutter build windows --release @defines
         if ($LASTEXITCODE -ne 0) { throw "flutter build windows failed ($LASTEXITCODE)" }

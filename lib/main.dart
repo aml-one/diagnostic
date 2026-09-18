@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'core/diagnostics/app_log.dart';
+import 'core/mobile/phone_diagnostic.dart';
+import 'screens/android/android_home_screen.dart';
 import 'screens/home_screen.dart';
 import 'theme/desktop_theme.dart';
 import 'widgets/desktop_title_bar.dart';
@@ -65,9 +67,12 @@ class DiagnosticApp extends StatelessWidget {
       theme: diagnosticLightTheme(),
       darkTheme: diagnosticDarkTheme(),
       builder: (context, child) {
+        if (kIsPhoneDiagnostic) return child ?? const SizedBox.shrink();
         return DesktopAppFrame(child: child ?? const SizedBox.shrink());
       },
-      home: const HomeScreen(),
+      home: kIsPhoneDiagnostic
+          ? const AndroidHomeScreen()
+          : const HomeScreen(),
     );
   }
 }

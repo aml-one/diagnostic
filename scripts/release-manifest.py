@@ -26,6 +26,7 @@ import urllib.request
 from typing import Any
 
 PLATFORMS = (
+    "diagnosticAndroid",
     "diagnosticWindows",
     "diagnosticMacos",
     "diagnosticMacosIntel",

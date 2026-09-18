@@ -6,12 +6,15 @@ import '../core/adb/adb_client.dart';
 import '../core/bugreport/anr_trace_parser.dart';
 import '../core/bugreport/bugreport_service.dart';
 import '../core/diagnosis/diagnosis_report.dart';
+import '../core/diagnosis/watch_log_summary.dart';
 import '../core/diagnostics/app_log.dart';
 import '../core/logcat/anr_detector.dart';
 import '../core/logcat/logcat_parser.dart';
 import '../core/perf/dumpsys_snapshot.dart';
 import '../core/perfetto/perfetto_models.dart';
 import '../core/perfetto/perfetto_service.dart';
+import '../core/mobile/device_bridge.dart';
+import '../core/mobile/phone_diagnostic.dart';
 import 'adb_providers.dart';
 import 'logcat_providers.dart';
 
@@ -43,6 +46,7 @@ class DiagnosisState {
     this.packageName,
     this.includeDumpsys = true,
     this.includePerfetto = true,
+    this.includeBugreport = true,
     this.anrEvents = const <AnrEvent>[],
     this.bugreportResult,
     this.bugreportParse,
@@ -64,6 +68,7 @@ class DiagnosisState {
   final String? packageName;
   final bool includeDumpsys;
   final bool includePerfetto;
+  final bool includeBugreport;
 
   /// Recent (last couple of minutes) ANR/crash events seen in the live
   /// logcat ring buffer, most recent first.
@@ -104,6 +109,7 @@ class DiagnosisState {
     if (report == null) return 'No issues found yet';
     final reason = report.anrReason?.trim();
     if (reason != null && reason.isNotEmpty) return reason;
+    if (report.logFindings.isNotEmpty) return report.logFindings.first;
     if (report.perfettoFindings.isNotEmpty) {
       final sorted = [...report.perfettoFindings]
         ..sort((a, b) => b.severity.index.compareTo(a.severity.index));
@@ -133,6 +139,7 @@ class DiagnosisState {
       packageName: packageName,
       includeDumpsys: includeDumpsys,
       includePerfetto: includePerfetto,
+      includeBugreport: includeBugreport,
       anrEvents: anrEvents ?? this.anrEvents,
       bugreportResult: bugreportResult ?? this.bugreportResult,
       bugreportParse: bugreportParse ?? this.bugreportParse,
@@ -357,6 +364,164 @@ class DiagnosisController extends Notifier<DiagnosisState> {
     }
   }
 
+  /// Phone Watch Diagnose: dump live logcat, native Watch ring, optional
+  /// local dumpsys. Skips ADB bugreport and Perfetto (those need a desktop
+  /// host). Refresh always recaptures — it must not reuse the Watch snapshot
+  /// from when this screen was opened.
+  Future<void> runOnDevice({
+    String? packageName,
+    List<LogcatLine> lines = const [],
+  }) async {
+    if (state.isRunning) return;
+    _cancelRequested = false;
+    final startedAt = DateTime.now();
+    final pkg = (packageName != null && packageName.trim().isNotEmpty)
+        ? packageName.trim()
+        : null;
+
+    _emit(
+      DiagnosisState(
+        step: DiagnosisStep.scanningLogcat,
+        progressText: 'Dumping live logcat…',
+        serial: kOnDeviceSerial,
+        packageName: pkg,
+        includeDumpsys: true,
+        includePerfetto: false,
+        includeBugreport: false,
+        startedAt: startedAt,
+      ),
+    );
+    AppLog.i('diagnose', 'on-device: dumping live logcat');
+
+    try {
+      List<String> dumpedRaw = const [];
+      List<String> ringRaw = const [];
+      try {
+        dumpedRaw = await deviceBridge.dumpLogcat();
+      } on Object catch (err) {
+        AppLog.w('diagnose', 'on-device logcat dump failed', err);
+      }
+      if (_bail()) return;
+      try {
+        ringRaw = await deviceBridge.snapshotLogs();
+      } on Object catch (err) {
+        AppLog.w('diagnose', 'on-device log ring failed', err);
+      }
+      if (_bail()) return;
+
+      final collected = mergeWatchLogLines([
+        dumpedRaw.map(LogcatParser.parse),
+        ringRaw.map(LogcatParser.parse),
+        lines,
+      ]);
+      _emit(
+        state.copyWith(
+          progressText: 'Reading ${collected.length} log lines…',
+        ),
+      );
+
+      GfxInfoSnapshot? gfx;
+      MemInfoSnapshot? mem;
+      CpuInfoSnapshot? cpu;
+      final extraFindings = <String>[];
+      _emit(
+        state.copyWith(
+          step: DiagnosisStep.dumpsys,
+          progressText: pkg == null
+              ? 'Capturing dumpsys cpu…'
+              : 'Capturing dumpsys gfx / mem / cpu…',
+        ),
+      );
+      AppLog.i('diagnose', 'on-device: dumpsys');
+      try {
+        final gfxOut = pkg == null
+            ? ''
+            : await deviceBridge.dumpsys('gfxinfo $pkg');
+        if (_bail()) return;
+        final memOut = pkg == null
+            ? ''
+            : await deviceBridge.dumpsys('meminfo $pkg');
+        if (_bail()) return;
+        final cpuOut = await deviceBridge.dumpsys('cpuinfo');
+        if (_bail()) return;
+        var dumpsysLimited = false;
+        if (pkg != null) {
+          gfx = parseGfxInfo(gfxOut, package: pkg);
+          mem = parseMemInfo(memOut, package: pkg);
+          if (dumpsysLooksDenied(gfxOut) ||
+              (gfx.totalFrames == null && gfx.jankyFrames == null)) {
+            dumpsysLimited = true;
+            gfx = null;
+          }
+          if (dumpsysLooksDenied(memOut) || mem.totalPssKb == null) {
+            dumpsysLimited = true;
+            mem = null;
+          }
+        }
+        cpu = parseCpuInfo(cpuOut);
+        if (dumpsysLooksDenied(cpuOut) ||
+            (cpu.load == null && cpu.top.isEmpty)) {
+          dumpsysLimited = true;
+          cpu = null;
+        }
+        if (dumpsysLimited) {
+          extraFindings.add(kOnDeviceLighterDiagnosis);
+        }
+      } on Object catch (err) {
+        AppLog.w('diagnose', 'on-device dumpsys failed', err);
+        extraFindings.add(kOnDeviceLighterDiagnosis);
+      }
+      if (_bail()) return;
+
+      final watchLogs = summarizeWatchLogs(
+        collected,
+        extraFindings: extraFindings,
+      );
+      final anrEvents = _scanLines(
+        collected,
+        window: const Duration(days: 365),
+      );
+      _emit(state.copyWith(anrEvents: anrEvents));
+      if (_bail()) return;
+
+      _emit(
+        state.copyWith(
+          step: DiagnosisStep.assembling,
+          progressText: 'Assembling report…',
+        ),
+      );
+      final preferredEvent = anrEvents.isEmpty ? null : anrEvents.first;
+      final report = DiagnosisReport.assemble(
+        packageName: pkg,
+        event: preferredEvent,
+        gfx: gfx,
+        mem: mem,
+        cpu: cpu,
+        watchLogs: watchLogs,
+      );
+
+      _emit(
+        state.copyWith(
+          step: DiagnosisStep.done,
+          progressText: 'Done',
+          report: report,
+          finishedAt: DateTime.now(),
+        ),
+      );
+    } catch (err) {
+      if (_cancelRequested || _disposed) return;
+      AppLog.e('diagnose', 'on-device pipeline failed at ${state.step.name}', err);
+      _emit(
+        state.copyWith(
+          step: DiagnosisStep.failed,
+          failedStep: state.step,
+          error: '$err',
+          finishedAt: DateTime.now(),
+        ),
+      );
+    }
+  }
+
   /// Kills in-flight `adb` (bugreport / dumpsys / perfetto) and returns to idle.
   /// The Diagnose screen pops itself; this must not leave a "stopped" card.
   void cancel() {
@@ -402,20 +567,33 @@ class DiagnosisController extends Notifier<DiagnosisState> {
 
     final session = ref.read(logcatSessionProvider.notifier).session;
     final buffer = session?.recentBuffer ?? const <LogcatLine>[];
-    if (buffer.isNotEmpty) {
-      final detector = AnrDetector(bufferSize: buffer.length + 8);
-      for (final line in buffer) {
-        final event = detector.add(line);
-        if (event != null && now.difference(event.time) <= window) {
-          add(event);
-        }
-      }
-      final flushed = detector.flush();
-      if (flushed != null && now.difference(flushed.time) <= window) {
-        add(flushed);
-      }
+    for (final event in _scanLines(buffer, window: window, now: now)) {
+      add(event);
     }
 
+    out.sort((a, b) => b.time.compareTo(a.time));
+    return out;
+  }
+
+  List<AnrEvent> _scanLines(
+    List<LogcatLine> buffer, {
+    Duration window = const Duration(minutes: 2),
+    DateTime? now,
+  }) {
+    if (buffer.isEmpty) return const [];
+    final at = now ?? DateTime.now();
+    final out = <AnrEvent>[];
+    final detector = AnrDetector(bufferSize: buffer.length + 8);
+    for (final line in buffer) {
+      final event = detector.add(line);
+      if (event != null && at.difference(event.time) <= window) {
+        out.add(event);
+      }
+    }
+    final flushed = detector.flush();
+    if (flushed != null && at.difference(flushed.time) <= window) {
+      out.add(flushed);
+    }
     out.sort((a, b) => b.time.compareTo(a.time));
     return out;
   }
