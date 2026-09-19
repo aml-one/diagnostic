@@ -94,5 +94,6 @@ void main() {
     expect(displayPackageTitle('one.aml.one_auth'), 'OneAuth');
     expect(displayPackageTitle('one.aml.securekeyboard'), 'AmL Keyboard');
     expect(displayPackageTitle('one.aml.store'), 'AmL One');
+    expect(displayPackageTitle('one.aml.diagnostic'), 'Diagnostic');
   });
 }

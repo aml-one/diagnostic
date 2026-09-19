@@ -28,11 +28,13 @@ class AndroidWatchScreen extends StatefulWidget {
 }
 
 class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
-  static const _maxLines = 2500;
+  static const _maxLines = 400;
+  static const _uiCoalesce = Duration(milliseconds: 200);
 
   final _lines = <LogcatLine>[];
   final _levels = allLogcatLevels();
   final _scroll = ScrollController();
+  final _pidGate = LogcatPidGate();
   var _hideSpam = true;
   var _recording = false;
   var _paused = false;
@@ -41,10 +43,12 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
   var _pendingNew = 0;
   var _pinningLive = false;
   var _fingerDrag = false;
+  var _uiDirty = false;
   String? _error;
   int? _pid;
   StreamSubscription<Map<Object?, Object?>>? _sub;
   Timer? _pidTimer;
+  Timer? _uiTimer;
 
   String get _packageName => widget.app?.packageName ?? '';
 
@@ -63,6 +67,7 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
   @override
   void dispose() {
     _pidTimer?.cancel();
+    _uiTimer?.cancel();
     _sub?.cancel();
     _scroll.dispose();
     super.dispose();
@@ -76,6 +81,7 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
     try {
       if (_packageName.isNotEmpty) {
         _pid = await deviceBridge.pidOf(_packageName);
+        _pidGate.pid = _pid;
       }
       await deviceBridge.startWatch(
         packageName: _packageName.isEmpty ? null : _packageName,
@@ -95,6 +101,7 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
     final pid = await deviceBridge.pidOf(_packageName);
     if (!mounted || pid == _pid) return;
     _pid = pid;
+    _pidGate.pid = pid;
     await deviceBridge.setFilter(
       packageName: _packageName,
       pid: pid,
@@ -219,23 +226,32 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
     var added = 0;
     for (final item in rawLines) {
       final parsed = LogcatParser.parse('$item');
-      if (_pid != null && parsed.isParsed && parsed.pid != _pid) continue;
+      if (!_pidGate.accept(parsed)) continue;
       if (!passesLogcatLevelFilter(parsed, _levels)) continue;
       if (_hideSpam && isLogcatDisplayNoise(parsed)) continue;
       _lines.add(parsed);
       added++;
     }
     if (added == 0) return;
-    if (_followTail) {
-      if (_lines.length > _maxLines) {
+    if (!_followTail) {
+      _pendingNew += added;
+    }
+    _scheduleUi();
+  }
+
+  void _scheduleUi() {
+    _uiDirty = true;
+    if (_uiTimer != null) return;
+    _uiTimer = Timer(_uiCoalesce, () {
+      _uiTimer = null;
+      if (!mounted || !_uiDirty) return;
+      _uiDirty = false;
+      if (_followTail && _lines.length > _maxLines) {
         _lines.removeRange(0, _lines.length - _maxLines);
       }
-      if (mounted) setState(() {});
-      _pinLive();
-      return;
-    }
-    _pendingNew += added;
-    if (mounted) setState(() {});
+      setState(() {});
+      if (_followTail) _pinLive();
+    });
   }
 
   Future<void> _toggleRecord() async {
@@ -895,8 +911,6 @@ class _WatchLogPane extends StatelessWidget {
                   reverse: true,
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   itemCount: lines.length,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: false,
                   cacheExtent: 240,
                   itemBuilder: (context, index) {
                     final lineIndex = lines.length - 1 - index;

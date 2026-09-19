@@ -4,9 +4,11 @@ import 'package:flutter/services.dart';
 
 import '../../core/mobile/device_bridge.dart';
 import '../../core/mobile/phone_diagnostic.dart';
+import '../../core/mobile/self_check.dart';
 import '../../theme/desktop_theme.dart';
 import 'android_app_shelf.dart';
 import 'android_permissions_screen.dart';
+import 'android_self_check_screen.dart';
 import 'android_settings_screen.dart';
 import 'android_watch_screen.dart';
 import 'mdx_share_sheet.dart';
@@ -22,6 +24,7 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
     with WidgetsBindingObserver {
   PhonePermissions? _perms;
   List<PhoneInstalledApp> _apps = const [];
+  DiagnosticSelfCheck _selfCheck = DiagnosticSelfCheck.empty;
   var _loading = true;
   String? _error;
   final _query = TextEditingController();
@@ -61,13 +64,25 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
     try {
       final perms = await deviceBridge.permissions();
       var apps = const <PhoneInstalledApp>[];
+      var selfCheck = DiagnosticSelfCheck.empty;
       if (perms.readLogs) {
-        apps = await deviceBridge.listPackages();
+        final results = await Future.wait<Object?>([
+          deviceBridge.listPackages(),
+          runDiagnosticSelfCheck(),
+        ]);
+        apps = (results[0] as List<PhoneInstalledApp>)
+            .where((app) => app.packageName != kDiagnosticAndroidPackage)
+            .toList(growable: false);
+        selfCheck = results[1] as DiagnosticSelfCheck;
+        if (selfCheck.hasLogs) {
+          apps = [kDiagnosticShelfApp, ...apps];
+        }
       }
       if (!mounted) return;
       setState(() {
         _perms = perms;
         _apps = apps;
+        _selfCheck = selfCheck;
         _loading = false;
       });
     } catch (err) {
@@ -124,7 +139,15 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
       apps: _apps,
       query: _query,
       onQueryChanged: () => setState(() {}),
+      selfCheckPackage:
+          _selfCheck.hasLogs ? kDiagnosticAndroidPackage : null,
+      onSelfCheck: _openSelfCheck,
       onWatch: (app) {
+        if (app.packageName == kDiagnosticAndroidPackage &&
+            _selfCheck.hasLogs) {
+          _openSelfCheck();
+          return;
+        }
         Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => AndroidWatchScreen(app: app),
@@ -141,6 +164,21 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
       onSettings: _openSettings,
       onRefresh: () => _reload(soft: true),
     );
+  }
+
+  Future<void> _openSelfCheck() async {
+    final hidden = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => AndroidSelfCheckScreen(check: _selfCheck),
+      ),
+    );
+    if (!mounted || hidden != true) return;
+    setState(() {
+      _selfCheck = DiagnosticSelfCheck.empty;
+      _apps = _apps
+          .where((app) => app.packageName != kDiagnosticAndroidPackage)
+          .toList(growable: false);
+    });
   }
 }
 

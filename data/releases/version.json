@@ -1,62 +1,67 @@
 {
   "diagnosticWindows": {
-    "version": "1.0.6",
-    "buildNumber": 10006,
-    "label": "v1.0.6-260918",
-    "file": "diagnostic-windows-x64-v1.0.6-260918.zip",
-    "sizeBytes": 19526943,
-    "sha256": "3804df44cc2cad6da5785807ce0a75ddcf25123bf5cd335f78ce4ea160ed262d",
-    "publishedAt": "2026-09-18T20:00:18.7682784Z",
+    "version": "1.0.7",
+    "buildNumber": 10007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-windows-x64-v1.0.7-260919.zip",
+    "sizeBytes": 19528753,
+    "sha256": "0fd6673e7df6a8f7e1dc026ba2bc35f4c4df05bd3fbc41d4eb19910a083f6745",
+    "publishedAt": "2026-09-19T07:21:06.3731833Z",
     "changelog": [
-      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
     ]
   },
   "diagnosticLinux": {
-    "version": "1.0.6",
-    "buildNumber": 10006,
-    "label": "v1.0.6-260918",
-    "file": "diagnostic-linux-x64-v1.0.6-260918.deb",
-    "sizeBytes": 14311146,
-    "sha256": "9d60536e767ebfca5f4c3cef93e315f8c69999de651aa02b072affdbfe4d6f67",
-    "publishedAt": "2026-09-18T20:00:54.3197850Z",
+    "version": "1.0.7",
+    "buildNumber": 10007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-linux-x64-v1.0.7-260919.deb",
+    "sizeBytes": 14312930,
+    "sha256": "1002b91eefb8414a0db3826ab993b900cb9b41db45d162fbe2435eb4ae8aa1ca",
+    "publishedAt": "2026-09-19T07:21:42.0883467Z",
     "changelog": [
-      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
     ]
   },
   "diagnosticMacos": {
-    "version": "1.0.6",
-    "buildNumber": 10006,
-    "label": "v1.0.6-260918",
-    "file": "diagnostic-macos-silicon-v1.0.6-260918.dmg",
-    "sizeBytes": 15939799,
-    "sha256": "cab16d92e312d80c656b56fbabec1817a71357a8e1a86e7ac327d18013a0efb7",
-    "publishedAt": "2026-09-18T20:01:31.3817021Z",
+    "version": "1.0.7",
+    "buildNumber": 10007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-macos-silicon-v1.0.7-260919.dmg",
+    "sizeBytes": 15945232,
+    "sha256": "c3a8029df94b738698a48d92f35f62e9f7ab4631a84f1ea9d38ac32b00595da8",
+    "publishedAt": "2026-09-19T07:22:11.3245219Z",
     "changelog": [
-      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
     ]
   },
   "diagnosticMacosIntel": {
-    "version": "1.0.6",
-    "buildNumber": 10006,
-    "label": "v1.0.6-260918",
-    "file": "diagnostic-macos-intel-v1.0.6-260918.dmg",
-    "sizeBytes": 17298233,
-    "sha256": "7e87c6a60592e7a25b0c4116a7f54266498e391e853c2105e97ed9b1cf20b3a5",
-    "publishedAt": "2026-09-18T20:02:14.8352692Z",
+    "version": "1.0.7",
+    "buildNumber": 10007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-macos-intel-v1.0.7-260919.dmg",
+    "sizeBytes": 17303973,
+    "sha256": "97a53a548ecc027f21b9eda001412b12a92212cdbdabcbb9ed60d81b5e083172",
+    "publishedAt": "2026-09-19T07:22:48.6258845Z",
     "changelog": [
-      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
     ]
   },
   "diagnosticAndroid": {
-    "version": "1.0.6",
-    "buildNumber": 22006,
-    "label": "v1.0.6-260918",
-    "file": "diagnostic-android-arm64-v1.0.6-260918.apk",
-    "sizeBytes": 21493851,
-    "sha256": "d4ffa8305703d862b03ddb19dfa2a4374e89d70a358c11e1016343fa0ff66594",
-    "publishedAt": "2026-09-18T19:59:38.1717233Z",
+    "version": "1.0.7",
+    "buildNumber": 22007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-android-arm64-v1.0.7-260919.apk",
+    "sizeBytes": 21493899,
+    "sha256": "cb518fcec378f5c9dbe2a9ecbcbb50b9f0b19b970b9470cda2feabb127f51779",
+    "publishedAt": "2026-09-19T07:20:23.5317872Z",
     "changelog": [
-      "[bugfix] Intel HD 4000/5000 Macs no longer crash on open \u2014 they get a Metal 2 required screen instead of a segfault"
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
     ]
   }
 }

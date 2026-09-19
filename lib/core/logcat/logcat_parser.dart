@@ -65,6 +65,7 @@ const kLogcatNoiseTags = {
   'HandwritingStubImpl',
   'HandwritingInit',
   'InsetsAnimationCtrl',
+  'NotiHistoryDatabase',
 };
 
 /// Android logcat levels, verbose → fatal (same letters as the live-pane badges).
@@ -92,6 +93,27 @@ String logcatLevelsKey(Set<String> levels) {
 bool passesLogcatLevelFilter(LogcatLine line, Set<String> levels) {
   if (!line.isParsed) return true;
   return levels.contains(line.level);
+}
+
+/// Keeps stack-frame continuations only when they belong to the last kept
+/// process. Unparsed `at …` lines used to bypass the pid filter and flood
+/// Watch until Diagnostic ANR'd.
+class LogcatPidGate {
+  LogcatPidGate([this.pid]);
+
+  int? pid;
+  var _keepUnparsed = false;
+
+  bool accept(LogcatLine line) {
+    if (pid == null) {
+      _keepUnparsed = true;
+      return true;
+    }
+    if (!line.isParsed) return _keepUnparsed;
+    final keep = line.pid == pid;
+    _keepUnparsed = keep;
+    return keep;
+  }
 }
 
 /// Parses `MM-DD HH:MM:SS.mmm  PID  TID LEVEL TAG: message`.

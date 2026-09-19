@@ -4,10 +4,12 @@ import android.content.Context
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedOutputStream
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
@@ -28,9 +30,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 object LogcatEngine {
     private const val TAG = "DiagLogcat"
-    private const val BATCH_MS = 80L
-    private const val MAX_BATCH = 80
+    private const val LIVE_BATCH_MS = 200L
+    private const val RECORD_BATCH_MS = 400L
+    private const val MAX_BATCH = 40
     private const val MAX_RING = 4000
+    private const val FILE_FLUSH_EVERY = 16
+    private const val FILE_FLUSH_MS = 250L
 
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor { thread ->
@@ -44,7 +49,10 @@ object LogcatEngine {
     private val paused = AtomicBoolean(false)
 
     @Volatile private var process: Process? = null
-    @Volatile private var recordStream: FileOutputStream? = null
+    @Volatile private var recordFos: FileOutputStream? = null
+    @Volatile private var recordBuf: BufferedOutputStream? = null
+    private var writesSinceFlush = 0
+    private var lastFileFlushMs = 0L
     @Volatile var recordPath: String? = null
         private set
     @Volatile var pendingMdx: String? = null
@@ -53,6 +61,7 @@ object LogcatEngine {
         private set
     @Volatile var targetPid: Int? = null
         private set
+    @Volatile private var targetPids: Set<Int> = emptySet()
     @Volatile var levelsKey: String = "VDIWEF"
         private set
     @Volatile var hideSpam: Boolean = true
@@ -68,6 +77,7 @@ object LogcatEngine {
         "HandwritingStubImpl",
         "HandwritingInit",
         "InsetsAnimationCtrl",
+        "NotiHistoryDatabase",
     )
     private val threadtime = Regex(
         """^(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})\.(\d{1,3})\s+(\d+)\s+(\d+)\s+([VDIWEF])\s+(.+?):\s(.*)$""",
@@ -77,6 +87,11 @@ object LogcatEngine {
     private var flushPosted = false
     private val ringLock = Any()
     private val ring = ArrayDeque<String>()
+    private val liveKeep = KeepState()
+
+    private class KeepState {
+        var lastParsedKept = false
+    }
 
     fun isRunning(): Boolean = running.get()
     fun isRecording(): Boolean = recording.get()
@@ -101,12 +116,12 @@ object LogcatEngine {
 
     fun setFilter(packageName: String?, pid: Int?, levels: String?, hideSpam: Boolean?) {
         targetPackage = packageName?.trim()?.ifEmpty { null }
-        targetPid = pid
         if (!levels.isNullOrBlank()) levelsKey = levels
         if (hideSpam != null) this.hideSpam = hideSpam
-        if (!packageName.isNullOrBlank() && pid == null) {
-            targetPid = pidOf(packageName)
-        }
+        val lookedUp = targetPackage?.let(::pidsOf) ?: emptySet()
+        targetPids = if (pid != null) lookedUp + pid else lookedUp
+        targetPid = pid ?: targetPids.firstOrNull()
+        liveKeep.lastParsedKept = false
         emitState()
     }
 
@@ -133,9 +148,15 @@ object LogcatEngine {
                 .put("source", "logcat")
             val label = appLabel?.trim().orEmpty()
             if (label.isNotEmpty()) header.put("appLabel", label)
-            val stream = FileOutputStream(file, false)
-            stream.write("${header.toString()}\n".toByteArray(StandardCharsets.UTF_8))
-            recordStream = stream
+            val fos = FileOutputStream(file, false)
+            val buf = BufferedOutputStream(fos, 32 * 1024)
+            buf.write("${header.toString()}\n".toByteArray(StandardCharsets.UTF_8))
+            buf.flush()
+            fos.fd.sync()
+            recordFos = fos
+            recordBuf = buf
+            writesSinceFlush = 0
+            lastFileFlushMs = SystemClock.uptimeMillis()
             recordPath = file.absolutePath
             recording.set(true)
             paused.set(false)
@@ -167,6 +188,7 @@ object LogcatEngine {
 
     fun pauseRecord() {
         if (recording.get()) paused.set(true)
+        flushRecord()
         emitState()
     }
 
@@ -194,25 +216,30 @@ object LogcatEngine {
     private fun stopRecordLocked(): String? {
         val path = recordPath
         try {
-            recordStream?.flush()
-            recordStream?.close()
+            recordBuf?.flush()
+            recordFos?.fd?.sync()
+            recordBuf?.close()
         } catch (_: Exception) {
         }
-        recordStream = null
+        recordBuf = null
+        recordFos = null
+        writesSinceFlush = 0
         recording.set(false)
         paused.set(false)
         return path
     }
 
-    fun pidOf(packageName: String): Int? {
+    fun pidOf(packageName: String): Int? = pidsOf(packageName).firstOrNull()
+
+    fun pidsOf(packageName: String): Set<Int> {
         return try {
             val proc = Runtime.getRuntime().exec(arrayOf("pidof", packageName))
             val text = proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use(BufferedReader::readText)
             proc.waitFor()
-            text.trim().split(Regex("\\s+")).firstOrNull()?.toIntOrNull()
+            text.trim().split(Regex("\\s+")).mapNotNull { it.toIntOrNull() }.toSet()
         } catch (error: Exception) {
             Log.w(TAG, "pidof failed: ${error.message}")
-            null
+            emptySet()
         }
     }
 
@@ -234,16 +261,80 @@ object LogcatEngine {
     }
 
     /**
+     * Unfiltered main + crash `logcat -d` for the Diagnostic self-check.
+     * Does not apply the live Watch pid filter.
+     */
+    fun dumpBuffers(maxLines: Int = 4000): List<String> {
+        val cap = maxLines.coerceIn(200, 8000)
+        val kept = ArrayList<String>(cap)
+        readLogcatDump(
+            listOf(
+                "/system/bin/logcat",
+                "-d",
+                "-v",
+                "threadtime",
+                "-t",
+                cap.toString(),
+            ),
+            kept,
+            cap,
+        )
+        readLogcatDump(
+            listOf(
+                "/system/bin/logcat",
+                "-b",
+                "crash",
+                "-d",
+                "-v",
+                "threadtime",
+            ),
+            kept,
+            cap,
+        )
+        return if (kept.size <= cap) {
+            kept
+        } else {
+            ArrayList(kept.subList(kept.size - cap, kept.size))
+        }
+    }
+
+    private fun readLogcatDump(command: List<String>, into: ArrayList<String>, cap: Int) {
+        val proc = try {
+            ProcessBuilder(command).redirectErrorStream(true).start()
+        } catch (error: Exception) {
+            Log.w(TAG, "logcat dump failed: ${error.message}")
+            return
+        }
+        try {
+            proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use { reader ->
+                while (into.size < cap) {
+                    val line = reader.readLine() ?: break
+                    if (line.isNotEmpty()) into.add(line)
+                }
+            }
+            if (!proc.waitFor(10, TimeUnit.SECONDS)) {
+                proc.destroyForcibly()
+            }
+        } catch (error: Exception) {
+            Log.w(TAG, "logcat dump read failed: ${error.message}")
+            proc.destroyForcibly()
+        }
+    }
+
+    /**
      * One-shot `logcat -d` for Diagnose / Refresh. Uses a live pid lookup so a
      * stale Watch filter does not dump an empty buffer.
      */
     fun dumpLogcat(maxLines: Int = 4000): List<String> {
         val cap = maxLines.coerceIn(200, 8000)
         val previousPid = targetPid
+        val previousPids = targetPids
+        val dumpKeep = KeepState()
         try {
             val pkg = targetPackage
             if (pkg != null) {
-                targetPid = pidOf(pkg)
+                targetPids = pidsOf(pkg)
+                targetPid = targetPids.firstOrNull()
             }
             val proc = ProcessBuilder(
                 listOf(
@@ -262,7 +353,7 @@ object LogcatEngine {
                 proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use { reader ->
                     while (true) {
                         val line = reader.readLine() ?: break
-                        if (!shouldKeep(line)) continue
+                        if (!shouldKeep(line, dumpKeep)) continue
                         kept.add(line)
                     }
                 }
@@ -281,6 +372,7 @@ object LogcatEngine {
             }
         } finally {
             targetPid = previousPid
+            targetPids = previousPids
         }
     }
 
@@ -312,7 +404,7 @@ object LogcatEngine {
     }
 
     private fun onLine(raw: String) {
-        if (!shouldKeep(raw)) return
+        if (!shouldKeep(raw, liveKeep)) return
         remember(raw)
         if (recording.get() && !paused.get()) {
             appendRecord(raw)
@@ -330,26 +422,57 @@ object LogcatEngine {
         }
     }
 
-    private fun shouldKeep(raw: String): Boolean {
-        val match = threadtime.find(raw) ?: return true
+    private fun shouldKeep(raw: String, state: KeepState): Boolean {
+        val match = threadtime.find(raw)
+        if (match == null) {
+            return state.lastParsedKept
+        }
         val pid = match.groupValues[7].toIntOrNull()
         val level = match.groupValues[9]
         val tag = match.groupValues[10].trim()
-        val wantedPid = targetPid
-        if (wantedPid != null && pid != wantedPid) return false
-        if (levelsKey.isNotEmpty() && !levelsKey.contains(level)) return false
-        if (hideSpam && noiseTags.contains(tag)) return false
-        return true
+        val pids = targetPids
+        val pkg = targetPackage
+        val keep = when {
+            pids.isNotEmpty() && pid != null && pid !in pids -> false
+            pids.isEmpty() && !pkg.isNullOrBlank() && !raw.contains(pkg) -> false
+            levelsKey.isNotEmpty() && !levelsKey.contains(level) -> false
+            hideSpam && noiseTags.contains(tag) -> false
+            else -> true
+        }
+        state.lastParsedKept = keep
+        return keep
     }
 
     private fun appendRecord(raw: String) {
-        val stream = recordStream ?: return
+        val buf = recordBuf ?: return
         try {
-            stream.write((raw + "\n").toByteArray(StandardCharsets.UTF_8))
+            buf.write((raw + "\n").toByteArray(StandardCharsets.UTF_8))
+            writesSinceFlush++
+            val now = SystemClock.uptimeMillis()
+            if (writesSinceFlush >= FILE_FLUSH_EVERY) {
+                buf.flush()
+                writesSinceFlush = 0
+            }
+            if (now - lastFileFlushMs >= FILE_FLUSH_MS) {
+                flushRecord()
+            }
         } catch (error: Exception) {
             Log.w(TAG, "mdx write failed: ${error.message}")
         }
     }
+
+    private fun flushRecord() {
+        try {
+            recordBuf?.flush()
+            recordFos?.fd?.sync()
+            writesSinceFlush = 0
+            lastFileFlushMs = SystemClock.uptimeMillis()
+        } catch (error: Exception) {
+            Log.w(TAG, "mdx flush failed: ${error.message}")
+        }
+    }
+
+    private fun batchDelay(): Long = if (recording.get()) RECORD_BATCH_MS else LIVE_BATCH_MS
 
     private fun scheduleFlush() {
         if (flushPosted) {
@@ -357,7 +480,7 @@ object LogcatEngine {
             return
         }
         flushPosted = true
-        main.postDelayed({ flushNow() }, BATCH_MS)
+        main.postDelayed({ flushNow() }, batchDelay())
     }
 
     private fun flushNow() {

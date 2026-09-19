@@ -1,6 +1,20 @@
 [
   {
     "platform": "diagnosticAndroid",
+    "version": "1.0.7",
+    "buildNumber": 22007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-android-arm64-v1.0.7-260919.apk",
+    "sizeBytes": 21493899,
+    "sha256": "cb518fcec378f5c9dbe2a9ecbcbb50b9f0b19b970b9470cda2feabb127f51779",
+    "publishedAt": "2026-09-19T07:20:23.5317872Z",
+    "changelog": [
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+    ]
+  },
+  {
+    "platform": "diagnosticAndroid",
     "version": "1.0.6",
     "buildNumber": 22006,
     "label": "v1.0.6-260918",
@@ -76,6 +90,62 @@
       "[bugfix] Watch keeps logcat running when you leave Diagnostic, so HyperOS does not ask for device logs again",
       "[bugfix] Watch pauses Live as soon as you drag away from the newest lines",
       "[bugfix] Phone Diagnose dumps live logcat on every run, including Refresh, instead of replaying the frozen Watch snapshot"
+    ]
+  },
+  {
+    "platform": "diagnosticMacosIntel",
+    "version": "1.0.7",
+    "buildNumber": 10007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-macos-intel-v1.0.7-260919.dmg",
+    "sizeBytes": 17303973,
+    "sha256": "97a53a548ecc027f21b9eda001412b12a92212cdbdabcbb9ed60d81b5e083172",
+    "publishedAt": "2026-09-19T07:22:48.6258845Z",
+    "changelog": [
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+    ]
+  },
+  {
+    "platform": "diagnosticMacos",
+    "version": "1.0.7",
+    "buildNumber": 10007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-macos-silicon-v1.0.7-260919.dmg",
+    "sizeBytes": 15945232,
+    "sha256": "c3a8029df94b738698a48d92f35f62e9f7ab4631a84f1ea9d38ac32b00595da8",
+    "publishedAt": "2026-09-19T07:22:11.3245219Z",
+    "changelog": [
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+    ]
+  },
+  {
+    "platform": "diagnosticLinux",
+    "version": "1.0.7",
+    "buildNumber": 10007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-linux-x64-v1.0.7-260919.deb",
+    "sizeBytes": 14312930,
+    "sha256": "1002b91eefb8414a0db3826ab993b900cb9b41db45d162fbe2435eb4ae8aa1ca",
+    "publishedAt": "2026-09-19T07:21:42.0883467Z",
+    "changelog": [
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+    ]
+  },
+  {
+    "platform": "diagnosticWindows",
+    "version": "1.0.7",
+    "buildNumber": 10007,
+    "label": "v1.0.7-260919",
+    "file": "diagnostic-windows-x64-v1.0.7-260919.zip",
+    "sizeBytes": 19528753,
+    "sha256": "0fd6673e7df6a8f7e1dc026ba2bc35f4c4df05bd3fbc41d4eb19910a083f6745",
+    "publishedAt": "2026-09-19T07:21:06.3731833Z",
+    "changelog": [
+      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
+      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
     ]
   },
   {

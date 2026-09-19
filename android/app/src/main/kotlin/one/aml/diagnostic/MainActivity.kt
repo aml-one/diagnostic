@@ -178,6 +178,26 @@ class MainActivity : FlutterActivity() {
                                 }
                             }.start()
                         }
+                        "selfCheckDump" -> {
+                            val maxLines = call.argument<Int>("maxLines") ?: 4000
+                            Thread {
+                                try {
+                                    val lines = LogcatEngine.dumpBuffers(maxLines)
+                                    runOnUiThread {
+                                        result.success(
+                                            mapOf(
+                                                "pid" to android.os.Process.myPid(),
+                                                "lines" to lines,
+                                            ),
+                                        )
+                                    }
+                                } catch (error: Exception) {
+                                    runOnUiThread {
+                                        result.error("diag", error.message, null)
+                                    }
+                                }
+                            }.start()
+                        }
                         else -> result.notImplemented()
                     }
                 } catch (error: Exception) {

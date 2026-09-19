@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/adb/package_display_name.dart';
 import '../../core/app_version.dart';
 import '../../core/mobile/device_bridge.dart';
+import '../../theme/desktop_theme.dart';
 
 class AndroidAppShelfPage extends StatelessWidget {
   const AndroidAppShelfPage({
@@ -15,6 +16,8 @@ class AndroidAppShelfPage extends StatelessWidget {
     required this.onWatchAll,
     required this.onSettings,
     required this.onRefresh,
+    this.selfCheckPackage,
+    this.onSelfCheck,
   });
 
   final List<PhoneInstalledApp> apps;
@@ -24,6 +27,8 @@ class AndroidAppShelfPage extends StatelessWidget {
   final VoidCallback onWatchAll;
   final VoidCallback onSettings;
   final Future<void> Function() onRefresh;
+  final String? selfCheckPackage;
+  final VoidCallback? onSelfCheck;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +111,12 @@ class AndroidAppShelfPage extends StatelessWidget {
                           context,
                           title: 'AmL One World',
                           count: aow.length,
-                          sliver: _AowGrid(apps: aow, onWatch: onWatch),
+                          sliver: _AowGrid(
+                            apps: aow,
+                            onWatch: onWatch,
+                            selfCheckPackage: selfCheckPackage,
+                            onSelfCheck: onSelfCheck,
+                          ),
                         ),
                         ..._section(
                           context,
@@ -334,10 +344,17 @@ class _WatchAllTile extends StatelessWidget {
 }
 
 class _AowGrid extends StatelessWidget {
-  const _AowGrid({required this.apps, required this.onWatch});
+  const _AowGrid({
+    required this.apps,
+    required this.onWatch,
+    this.selfCheckPackage,
+    this.onSelfCheck,
+  });
 
   final List<PhoneInstalledApp> apps;
   final ValueChanged<PhoneInstalledApp> onWatch;
+  final String? selfCheckPackage;
+  final VoidCallback? onSelfCheck;
 
   @override
   Widget build(BuildContext context) {
@@ -351,7 +368,18 @@ class _AowGrid extends StatelessWidget {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           final app = apps[index];
-          return _AppChip(app: app, onTap: () => onWatch(app));
+          final selfCheck = app.packageName == selfCheckPackage;
+          return _AppChip(
+            app: app,
+            attention: selfCheck,
+            onTap: () {
+              if (selfCheck && onSelfCheck != null) {
+                onSelfCheck!();
+              } else {
+                onWatch(app);
+              }
+            },
+          );
         },
         childCount: apps.length,
       ),
@@ -391,11 +419,13 @@ class _AppChip extends StatelessWidget {
     required this.app,
     required this.onTap,
     this.wide = false,
+    this.attention = false,
   });
 
   final PhoneInstalledApp app;
   final VoidCallback onTap;
   final bool wide;
+  final bool attention;
 
   @override
   Widget build(BuildContext context) {
@@ -408,22 +438,48 @@ class _AppChip extends StatelessWidget {
         color: (dark ? AmlTheme.darkSurface : Colors.white)
             .withValues(alpha: dark ? 0.78 : 0.9),
         elevation: 4,
-        shadowColor: AmlTheme.violet.withValues(alpha: 0.12),
+        shadowColor: (attention ? AmlTheme.amber : AmlTheme.violet)
+            .withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(18),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Semantics(
             button: true,
-            label: '$title. ${app.packageName}',
+            label: attention
+                ? '$title self-check. Review or send leftover logs.'
+                : '$title. ${app.packageName}',
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
               child: Row(
                 children: [
-                  settingsPastelIcon(
-                    visual.icon,
-                    visual.pastelKey,
-                    dimension: 40,
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      settingsPastelIcon(
+                        visual.icon,
+                        visual.pastelKey,
+                        dimension: 40,
+                      ),
+                      if (attention)
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Desk.danger,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: dark
+                                    ? AmlTheme.darkSurface
+                                    : Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const SizedBox(width: 10, height: 10),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -488,6 +544,9 @@ _AppVisual _visualFor(String packageName) {
   }
   if (packageName == 'one.aml.store') {
     return const _AppVisual(Icons.shopping_bag_rounded, 'store');
+  }
+  if (packageName == 'one.aml.diagnostic') {
+    return const _AppVisual(Icons.monitor_heart_rounded, 'diagnostic');
   }
   if (isOfficialAppBuilderPackage(packageName)) {
     return const _AppVisual(Icons.auto_awesome_rounded, 'builder');

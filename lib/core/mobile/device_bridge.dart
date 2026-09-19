@@ -261,6 +261,20 @@ class DeviceBridge {
     return _stringList(raw);
   }
 
+  /// Unfiltered main + crash buffers for the Android self-check.
+  Future<SelfCheckDump> selfCheckDump({int maxLines = 4000}) async {
+    final raw = await _methods.invokeMethod<Map<Object?, Object?>>(
+      'selfCheckDump',
+      {'maxLines': maxLines},
+    );
+    final pid = raw?['pid'];
+    final linesRaw = raw?['lines'];
+    return SelfCheckDump(
+      pid: pid is int ? pid : 0,
+      lines: _stringList(linesRaw is List ? List<Object?>.from(linesRaw) : null),
+    );
+  }
+
   static List<String> _stringList(List<Object?>? raw) {
     if (raw == null || raw.isEmpty) return const [];
     return [
@@ -268,6 +282,13 @@ class DeviceBridge {
         if (item is String && item.isNotEmpty) item,
     ];
   }
+}
+
+class SelfCheckDump {
+  const SelfCheckDump({required this.pid, required this.lines});
+
+  final int pid;
+  final List<String> lines;
 }
 
 final deviceBridge = DeviceBridge();
