@@ -4,6 +4,7 @@ import 'package:aml_ui/aml_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/logcat/logcat_parser.dart';
+import '../../core/logcat/watch_line_keep.dart';
 import '../../core/mobile/device_bridge.dart';
 import '../../core/mobile/phone_diagnostic.dart';
 import '../../core/mobile/watch_follow.dart';
@@ -234,7 +235,20 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
     var dropDirty = false;
     for (final item in rawLines) {
       final parsed = LogcatParser.parse('$item');
-      if (!_pidGate.accept(parsed)) continue;
+      if (!shouldKeepWatchLine(
+        parsed,
+        pids: {
+          if (_pid != null) _pid!,
+        },
+        packageName: _packageName.isEmpty ? null : _packageName,
+        levelsKey: logcatLevelsKey(_levels),
+        hideSpam: _hideSpam,
+      )) {
+        continue;
+      }
+      // OneDrop tags are the app even when the line's pid is an older
+      // process (Watch opened after send) or a native helper.
+      if (!isOneDropWatchLine(parsed) && !_pidGate.accept(parsed)) continue;
       if (_dropWatch?.ingest(parsed) == true) dropDirty = true;
       if (!passesLogcatLevelFilter(parsed, _levels)) continue;
       if (_hideSpam && isLogcatDisplayNoise(parsed)) continue;

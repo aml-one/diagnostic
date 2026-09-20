@@ -67,6 +67,10 @@ object LogcatEngine {
     @Volatile var hideSpam: Boolean = true
         private set
     @Volatile var toolVersion: String = "1.0.3"
+    @Volatile private var appContext: Context? = null
+    @Volatile private var targetUid: Int? = null
+    @Volatile private var uidScoped: Boolean = false
+    @Volatile private var logcatGeneration: Int = 0
 
     private val noiseTags = setOf(
         "InsetsSource",
@@ -78,7 +82,17 @@ object LogcatEngine {
         "HandwritingInit",
         "InsetsAnimationCtrl",
         "NotiHistoryDatabase",
+        "IconCustomizer",
+        "ThemedIcon",
+        "IconPolicy",
     )
+    private val oneDropTags = setOf("OneDrop", "OneDropP2p", "OneDropEngine")
+    private val lifecycleTags = setOf(
+        "ActivityManager",
+        "ActivityTaskManager",
+        "WindowManager",
+    )
+    private const val oneDropPackage = "one.aml.onedrop"
     private val threadtime = Regex(
         """^(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})\.(\d{1,3})\s+(\d+)\s+(\d+)\s+([VDIWEF])\s+(.+?):\s(.*)$""",
     )
@@ -97,7 +111,12 @@ object LogcatEngine {
     fun isRecording(): Boolean = recording.get()
     fun isPaused(): Boolean = paused.get()
 
+    fun attach(context: Context) {
+        appContext = context.applicationContext
+    }
+
     fun start(context: Context) {
+        attach(context)
         if (!running.compareAndSet(false, true)) {
             emitState()
             return
@@ -121,7 +140,14 @@ object LogcatEngine {
         val lookedUp = targetPackage?.let(::pidsOf) ?: emptySet()
         targetPids = if (pid != null) lookedUp + pid else lookedUp
         targetPid = pid ?: targetPids.firstOrNull()
+        targetUid = targetPackage?.let(::uidOf)
+        val tagScoped = targetPackage == oneDropPackage
         liveKeep.lastParsedKept = false
+        if (tagScoped != uidScoped) {
+            uidScoped = tagScoped
+            logcatGeneration++
+            process?.destroy()
+        }
         emitState()
     }
 
@@ -231,7 +257,26 @@ object LogcatEngine {
 
     fun pidOf(packageName: String): Int? = pidsOf(packageName).firstOrNull()
 
+    fun uidOf(packageName: String): Int? {
+        val ctx = appContext ?: return null
+        return try {
+            ctx.packageManager.getPackageUid(packageName, 0)
+        } catch (_: Exception) {
+            try {
+                ctx.packageManager.getApplicationInfo(packageName, 0).uid
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
     fun pidsOf(packageName: String): Set<Int> {
+        val fromPidof = pidofExec(packageName)
+        if (fromPidof.isNotEmpty()) return fromPidof
+        return pidsFromPs(packageName)
+    }
+
+    private fun pidofExec(packageName: String): Set<Int> {
         return try {
             val proc = Runtime.getRuntime().exec(arrayOf("pidof", packageName))
             val text = proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use(BufferedReader::readText)
@@ -239,6 +284,28 @@ object LogcatEngine {
             text.trim().split(Regex("\\s+")).mapNotNull { it.toIntOrNull() }.toSet()
         } catch (error: Exception) {
             Log.w(TAG, "pidof failed: ${error.message}")
+            emptySet()
+        }
+    }
+
+    private fun pidsFromPs(packageName: String): Set<Int> {
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("ps", "-A"))
+            val text = proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use(BufferedReader::readText)
+            proc.waitFor()
+            val prefix = "$packageName:"
+            val found = mutableSetOf<Int>()
+            for (row in text.lineSequence()) {
+                if (!row.contains(packageName)) continue
+                val parts = row.trim().split(Regex("\\s+"))
+                if (parts.size < 2) continue
+                val name = parts.last()
+                if (name != packageName && !name.startsWith(prefix)) continue
+                parts.getOrNull(1)?.toIntOrNull()?.let(found::add)
+            }
+            found
+        } catch (error: Exception) {
+            Log.w(TAG, "ps failed: ${error.message}")
             emptySet()
         }
     }
@@ -336,16 +403,7 @@ object LogcatEngine {
                 targetPids = pidsOf(pkg)
                 targetPid = targetPids.firstOrNull()
             }
-            val proc = ProcessBuilder(
-                listOf(
-                    "/system/bin/logcat",
-                    "-d",
-                    "-v",
-                    "threadtime",
-                    "-t",
-                    cap.toString(),
-                ),
-            )
+            val proc = ProcessBuilder(dumpCommand())
                 .redirectErrorStream(true)
                 .start()
             val kept = ArrayList<String>(cap)
@@ -377,31 +435,108 @@ object LogcatEngine {
     }
 
     private fun runLogcat() {
-        try {
-            val proc = Runtime.getRuntime().exec(
-                arrayOf("logcat", "-v", "threadtime"),
-            )
+        while (running.get()) {
+            val gen = logcatGeneration
+            seedRecent()
+            val proc = try {
+                ProcessBuilder(followCommand()).redirectErrorStream(true).start()
+            } catch (error: Exception) {
+                Log.e(TAG, "logcat failed", error)
+                emit(
+                    mapOf(
+                        "type" to "error",
+                        "message" to (error.message ?: "logcat failed"),
+                    ),
+                )
+                break
+            }
             process = proc
+            try {
+                proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use { reader ->
+                    while (running.get() && gen == logcatGeneration) {
+                        val line = reader.readLine() ?: break
+                        onLine(line)
+                    }
+                }
+            } catch (error: Exception) {
+                Log.e(TAG, "logcat read failed", error)
+            } finally {
+                try {
+                    proc.destroy()
+                } catch (_: Exception) {
+                }
+                if (process === proc) process = null
+            }
+            if (!running.get()) break
+            if (gen == logcatGeneration) {
+                try {
+                    Thread.sleep(200)
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
+        }
+        running.set(false)
+        process = null
+        emitState()
+    }
+
+    private fun seedRecent() {
+        val dumpKeep = KeepState()
+        val command = dumpCommand()
+        val proc = try {
+            ProcessBuilder(command).redirectErrorStream(true).start()
+        } catch (error: Exception) {
+            Log.w(TAG, "logcat dump failed: ${error.message}")
+            return
+        }
+        try {
             proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use { reader ->
                 while (running.get()) {
                     val line = reader.readLine() ?: break
-                    onLine(line)
+                    if (!shouldKeep(line, dumpKeep)) continue
+                    remember(line)
+                    if (recording.get() && !paused.get()) appendRecord(line)
+                    batch.add(line)
                 }
             }
+            if (!proc.waitFor(10, TimeUnit.SECONDS)) {
+                proc.destroyForcibly()
+            }
         } catch (error: Exception) {
-            Log.e(TAG, "logcat failed", error)
-            emit(
-                mapOf(
-                    "type" to "error",
-                    "message" to (error.message ?: "logcat failed"),
-                ),
-            )
-        } finally {
-            running.set(false)
-            process = null
-            emitState()
+            Log.w(TAG, "logcat dump read failed: ${error.message}")
+            proc.destroyForcibly()
         }
+        if (batch.isNotEmpty()) {
+            main.post { flushNow() }
+        }
+        Log.i(TAG, "seeded Watch dump pkg=$targetPackage")
     }
+
+    private fun dumpCommand(): List<String> {
+        val args = mutableListOf("/system/bin/logcat", "-d", "-v", "threadtime")
+        if (targetPackage == oneDropPackage) {
+            args.addAll(oneDropTagArgs())
+        } else {
+            args.addAll(listOf("-t", "4000"))
+        }
+        return args
+    }
+
+    private fun followCommand(): List<String> {
+        val args = mutableListOf("logcat", "-v", "threadtime")
+        if (targetPackage == oneDropPackage) {
+            args.addAll(oneDropTagArgs())
+        }
+        return args
+    }
+
+    private fun oneDropTagArgs(): List<String> = listOf(
+        "-s",
+        "OneDrop:V",
+        "OneDropP2p:V",
+        "OneDropEngine:V",
+    )
 
     private fun onLine(raw: String) {
         if (!shouldKeep(raw, liveKeep)) return
@@ -430,17 +565,29 @@ object LogcatEngine {
         val pid = match.groupValues[7].toIntOrNull()
         val level = match.groupValues[9]
         val tag = match.groupValues[10].trim()
+        val message = match.groupValues[11]
         val pids = targetPids
         val pkg = targetPackage
         val keep = when {
-            pids.isNotEmpty() && pid != null && pid !in pids -> false
-            pids.isEmpty() && !pkg.isNullOrBlank() && !raw.contains(pkg) -> false
-            levelsKey.isNotEmpty() && !levelsKey.contains(level) -> false
             hideSpam && noiseTags.contains(tag) -> false
-            else -> true
+            levelsKey.isNotEmpty() && !levelsKey.contains(level) -> false
+            isTaggedAppLog(tag, message, pkg) -> true
+            pids.isNotEmpty() && pid != null && pid in pids -> true
+            pids.isNotEmpty() -> false
+            uidScoped && !pkg.isNullOrBlank() -> true
+            pkg.isNullOrBlank() -> true
+            lifecycleTags.contains(tag) && raw.contains(pkg) -> true
+            else -> false
         }
         state.lastParsedKept = keep
         return keep
+    }
+
+    private fun isTaggedAppLog(tag: String, message: String, pkg: String?): Boolean {
+        if (pkg != oneDropPackage) return false
+        if (tag in oneDropTags) return true
+        return tag == "flutter" &&
+            (message.startsWith("[OneDrop]") || message.startsWith("OneDrop:"))
     }
 
     private fun appendRecord(raw: String) {

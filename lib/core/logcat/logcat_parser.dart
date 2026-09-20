@@ -66,6 +66,9 @@ const kLogcatNoiseTags = {
   'HandwritingInit',
   'InsetsAnimationCtrl',
   'NotiHistoryDatabase',
+  'IconCustomizer',
+  'ThemedIcon',
+  'IconPolicy',
 };
 
 /// Android logcat levels, verbose → fatal (same letters as the live-pane badges).

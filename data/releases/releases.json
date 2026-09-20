@@ -1,6 +1,20 @@
 [
   {
     "platform": "diagnosticAndroid",
+    "version": "1.1.0",
+    "buildNumber": 22100,
+    "label": "v1.1.0-260920",
+    "file": "diagnostic-android-arm64-v1.1.0-260920.apk",
+    "sizeBytes": 21690547,
+    "sha256": "1389678b03a8e29c4d9a2fc6a8421064cadcb4626668a4738a377399ff662f45",
+    "publishedAt": "2026-09-20T17:08:09.8931043Z",
+    "changelog": [
+      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
+      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
+    ]
+  },
+  {
+    "platform": "diagnosticAndroid",
     "version": "1.0.9",
     "buildNumber": 22009,
     "label": "v1.0.9-260920",
@@ -119,6 +133,34 @@
       "[bugfix] Watch keeps logcat running when you leave Diagnostic, so HyperOS does not ask for device logs again",
       "[bugfix] Watch pauses Live as soon as you drag away from the newest lines",
       "[bugfix] Phone Diagnose dumps live logcat on every run, including Refresh, instead of replaying the frozen Watch snapshot"
+    ]
+  },
+  {
+    "platform": "diagnosticLinux",
+    "version": "1.1.0",
+    "buildNumber": 10100,
+    "label": "v1.1.0-260920",
+    "file": "diagnostic-linux-x64-v1.1.0-260920.deb",
+    "sizeBytes": 14335604,
+    "sha256": "2fd2fa48d46c726945d4aa706288865c5b9b7604793b4e0c2da8ce7f7a8dfd14",
+    "publishedAt": "2026-09-20T17:12:48.2746766Z",
+    "changelog": [
+      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
+      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
+    ]
+  },
+  {
+    "platform": "diagnosticWindows",
+    "version": "1.1.0",
+    "buildNumber": 10100,
+    "label": "v1.1.0-260920",
+    "file": "diagnostic-windows-x64-v1.1.0-260920.zip",
+    "sizeBytes": 19556158,
+    "sha256": "4d17697ebae614a7cd99ba2067c1b419360a31dbd537cbcae97177fbe62e6672",
+    "publishedAt": "2026-09-20T17:12:06.4739283Z",
+    "changelog": [
+      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
+      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
     ]
   },
   {

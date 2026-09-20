@@ -7,4 +7,6 @@
 
 
 ## Bug fixes
+[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name
+[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail
 

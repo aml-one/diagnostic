@@ -59,6 +59,7 @@ class MainActivity : FlutterActivity() {
                         "startWatch" -> {
                             val version = call.argument<String>("toolVersion")
                             if (!version.isNullOrBlank()) LogcatEngine.toolVersion = version
+                            LogcatEngine.attach(this)
                             LogcatEngine.setFilter(
                                 call.argument("packageName"),
                                 call.argument("pid"),
@@ -79,6 +80,7 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                         "setFilter" -> {
+                            LogcatEngine.attach(this)
                             LogcatEngine.setFilter(
                                 call.argument("packageName"),
                                 call.argument("pid"),

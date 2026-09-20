@@ -1,26 +1,28 @@
 {
   "diagnosticWindows": {
-    "version": "1.0.9",
-    "buildNumber": 10009,
-    "label": "v1.0.9-260920",
-    "file": "diagnostic-windows-x64-v1.0.9-260920.zip",
-    "sizeBytes": 19556290,
-    "sha256": "9e84398fba223394099f2d99cf77f5a341e52651812dc1c51cf1745f11d7cfa7",
-    "publishedAt": "2026-09-20T16:54:35.6236929Z",
+    "version": "1.1.0",
+    "buildNumber": 10100,
+    "label": "v1.1.0-260920",
+    "file": "diagnostic-windows-x64-v1.1.0-260920.zip",
+    "sizeBytes": 19556158,
+    "sha256": "4d17697ebae614a7cd99ba2067c1b419360a31dbd537cbcae97177fbe62e6672",
+    "publishedAt": "2026-09-20T17:12:06.4739283Z",
     "changelog": [
-      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
+      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
+      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
     ]
   },
   "diagnosticLinux": {
-    "version": "1.0.9",
-    "buildNumber": 10009,
-    "label": "v1.0.9-260920",
-    "file": "diagnostic-linux-x64-v1.0.9-260920.deb",
-    "sizeBytes": 14335720,
-    "sha256": "c05613c1571ddcf901136bffe251ae98eb233d225e621c983f1ebd8f79abab2c",
-    "publishedAt": "2026-09-20T16:55:25.6965587Z",
+    "version": "1.1.0",
+    "buildNumber": 10100,
+    "label": "v1.1.0-260920",
+    "file": "diagnostic-linux-x64-v1.1.0-260920.deb",
+    "sizeBytes": 14335604,
+    "sha256": "2fd2fa48d46c726945d4aa706288865c5b9b7604793b4e0c2da8ce7f7a8dfd14",
+    "publishedAt": "2026-09-20T17:12:48.2746766Z",
     "changelog": [
-      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
+      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
+      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
     ]
   },
   "diagnosticMacos": {
@@ -54,15 +56,16 @@
     ]
   },
   "diagnosticAndroid": {
-    "version": "1.0.9",
-    "buildNumber": 22009,
-    "label": "v1.0.9-260920",
-    "file": "diagnostic-android-arm64-v1.0.9-260920.apk",
-    "sizeBytes": 21625011,
-    "sha256": "0e0ccde915401e5898f5fa7947485203cb7ac7d2bef7f9607ad3750d8d24b5e0",
-    "publishedAt": "2026-09-20T16:53:40.0803659Z",
+    "version": "1.1.0",
+    "buildNumber": 22100,
+    "label": "v1.1.0-260920",
+    "file": "diagnostic-android-arm64-v1.1.0-260920.apk",
+    "sizeBytes": 21690547,
+    "sha256": "1389678b03a8e29c4d9a2fc6a8421064cadcb4626668a4738a377399ff662f45",
+    "publishedAt": "2026-09-20T17:08:09.8931043Z",
     "changelog": [
-      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
+      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
+      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
     ]
   }
 }
