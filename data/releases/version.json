@@ -1,32 +1,26 @@
 {
   "diagnosticWindows": {
-    "version": "1.0.8",
-    "buildNumber": 10008,
-    "label": "v1.0.8-260920",
-    "file": "diagnostic-windows-x64-v1.0.8-260920.zip",
-    "sizeBytes": 19532931,
-    "sha256": "71c241265a8d6c93c4fc09f5c1afad81850342c019ac1b55040c8a368d6df032",
-    "publishedAt": "2026-09-20T06:47:38.2152491Z",
+    "version": "1.0.9",
+    "buildNumber": 10009,
+    "label": "v1.0.9-260920",
+    "file": "diagnostic-windows-x64-v1.0.9-260920.zip",
+    "sizeBytes": 19556290,
+    "sha256": "9e84398fba223394099f2d99cf77f5a341e52651812dc1c51cf1745f11d7cfa7",
+    "publishedAt": "2026-09-20T16:54:35.6236929Z",
     "changelog": [
-      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
-      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
-      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
-      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
     ]
   },
   "diagnosticLinux": {
-    "version": "1.0.8",
-    "buildNumber": 10008,
-    "label": "v1.0.8-260920",
-    "file": "diagnostic-linux-x64-v1.0.8-260920.deb",
-    "sizeBytes": 14316446,
-    "sha256": "2a9461589eca93deac573e19c1a54812f338d47a944a8533244b1eb572d061e4",
-    "publishedAt": "2026-09-20T06:48:19.5905098Z",
+    "version": "1.0.9",
+    "buildNumber": 10009,
+    "label": "v1.0.9-260920",
+    "file": "diagnostic-linux-x64-v1.0.9-260920.deb",
+    "sizeBytes": 14335720,
+    "sha256": "c05613c1571ddcf901136bffe251ae98eb233d225e621c983f1ebd8f79abab2c",
+    "publishedAt": "2026-09-20T16:55:25.6965587Z",
     "changelog": [
-      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
-      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
-      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
-      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
     ]
   },
   "diagnosticMacos": {
@@ -60,18 +54,15 @@
     ]
   },
   "diagnosticAndroid": {
-    "version": "1.0.8",
-    "buildNumber": 22008,
-    "label": "v1.0.8-260920",
-    "file": "diagnostic-android-arm64-v1.0.8-260920.apk",
-    "sizeBytes": 21493899,
-    "sha256": "b923f446018c775ac925feac7ee35dff58b36143de899141e8e279a02c6b901d",
-    "publishedAt": "2026-09-20T06:46:48.4698098Z",
+    "version": "1.0.9",
+    "buildNumber": 22009,
+    "label": "v1.0.9-260920",
+    "file": "diagnostic-android-arm64-v1.0.9-260920.apk",
+    "sizeBytes": 21625011,
+    "sha256": "0e0ccde915401e5898f5fa7947485203cb7ac7d2bef7f9607ad3750d8d24b5e0",
+    "publishedAt": "2026-09-20T16:53:40.0803659Z",
     "changelog": [
-      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
-      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
-      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
-      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
     ]
   }
 }

@@ -23,6 +23,7 @@ class _AndroidSettingsScreenState extends State<AndroidSettingsScreen>
     with WidgetsBindingObserver {
   PhonePermissions? _perms;
   var _loading = true;
+  var _serverUpload = true;
 
   @override
   void initState() {
@@ -44,11 +45,19 @@ class _AndroidSettingsScreenState extends State<AndroidSettingsScreen>
 
   Future<void> _reload() async {
     final perms = await deviceBridge.permissions();
+    final serverUpload = await SettingsStore().serverUploadEnabled();
     if (!mounted) return;
     setState(() {
       _perms = perms;
+      _serverUpload = serverUpload;
       _loading = false;
     });
+  }
+
+  Future<void> _setServerUpload(bool value) async {
+    await SettingsStore().setServerUploadEnabled(value);
+    if (!mounted) return;
+    setState(() => _serverUpload = value);
   }
 
   Future<void> _copyGrant() async {
@@ -215,6 +224,32 @@ class _AndroidSettingsScreenState extends State<AndroidSettingsScreen>
                                       deviceBridge.openSettings('autostart'),
                                 ),
                               ],
+                              const SizedBox(height: 18),
+                              Text(
+                                'Server',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.2,
+                                  color: muted,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SettingsCard(
+                                children: [
+                                  SettingsSwitchTile(
+                                    secondary: settingsPastelIcon(
+                                      Icons.cloud_upload_rounded,
+                                      'Upload',
+                                    ),
+                                    title: const Text('Upload captures to server'),
+                                    subtitle:
+                                        'Sends each Watch, Diagnose, and self-check automatically.',
+                                    value: _serverUpload,
+                                    onChanged: _setServerUpload,
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 18),
                               Text(
                                 'AI',
@@ -606,7 +641,7 @@ class _DeepSeekKeyCardState extends ConsumerState<_DeepSeekKeyCard> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Saved on this phone. Diagnose never sends logs until you ask.',
+                        'Saved on this phone. DeepSeek stays off until you tap Ask.',
                         style: TextStyle(
                           fontSize: 12.5,
                           height: 1.3,

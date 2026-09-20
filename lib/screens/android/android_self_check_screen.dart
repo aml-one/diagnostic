@@ -6,8 +6,8 @@ import '../../core/mobile/self_check.dart';
 import '../../widgets/logcat_row.dart';
 import 'mdx_share_sheet.dart';
 
-/// Review / send leftover Diagnostic crash and error logcat.
-class AndroidSelfCheckScreen extends StatelessWidget {
+/// Review leftover Diagnostic crash and error logcat. Uploads automatically.
+class AndroidSelfCheckScreen extends StatefulWidget {
   const AndroidSelfCheckScreen({super.key, required this.check});
 
   final DiagnosticSelfCheck check;
@@ -15,14 +15,37 @@ class AndroidSelfCheckScreen extends StatelessWidget {
   static const _previewCap = 400;
 
   @override
+  State<AndroidSelfCheckScreen> createState() => _AndroidSelfCheckScreenState();
+}
+
+class _AndroidSelfCheckScreenState extends State<AndroidSelfCheckScreen> {
+  DiagnosticSelfCheck get check => widget.check;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final path = check.path;
+      if (!mounted || path == null || path.isEmpty) return;
+      offerMdxActions(
+        context,
+        path: path,
+        applicationId: kDiagnosticAndroidPackage,
+        source: 'self-check',
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final dark = AmlTheme.isDark(context);
     final ink = AmlTheme.inkOf(context);
     final muted = AmlTheme.mutedOf(context);
     final lines = check.lines;
-    final preview = lines.length <= _previewCap
+    final previewCap = AndroidSelfCheckScreen._previewCap;
+    final preview = lines.length <= previewCap
         ? lines
-        : lines.sublist(lines.length - _previewCap);
+        : lines.sublist(lines.length - previewCap);
     final skipped = lines.length - preview.length;
     return Scaffold(
       backgroundColor: dark ? AmlTheme.darkBg : kSettingsPageBackground,
@@ -83,7 +106,7 @@ class AndroidSelfCheckScreen extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
-                    'Leftover crash and error logcat from this app. Send it, or hide the tile until something new shows up.',
+                    'Leftover crash and error logcat from this app. It uploads to the server automatically. Hide the tile until something new shows up.',
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.35,
@@ -139,7 +162,7 @@ class AndroidSelfCheckScreen extends StatelessWidget {
                           onPressed: check.path == null || check.path!.isEmpty
                               ? null
                               : () => _send(context),
-                          child: const Text('Send'),
+                          child: const Text('Done'),
                         ),
                       ),
                     ],
@@ -166,6 +189,7 @@ class AndroidSelfCheckScreen extends StatelessWidget {
       context,
       path: path,
       applicationId: kDiagnosticAndroidPackage,
+      source: 'self-check',
     );
     await dismissDiagnosticSelfCheck(check);
     if (!context.mounted) return;

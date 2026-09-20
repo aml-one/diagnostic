@@ -211,6 +211,7 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
         applicationId: _packageName.isEmpty
             ? kDiagnosticAndroidPackage
             : _packageName,
+        source: 'watch',
       );
       return;
     }

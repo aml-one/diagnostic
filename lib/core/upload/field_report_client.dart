@@ -124,7 +124,7 @@ class FieldReportClient {
 String fieldReportUserMessage(FieldReportUploadException error) {
   switch (error.code) {
     case 'unknown_application_id':
-      return 'This package is not an App Builder app.';
+      return 'The server could not take this capture.';
     case 'text_too_large':
     case 'attachment_too_large':
       return 'That report is too large to send.';

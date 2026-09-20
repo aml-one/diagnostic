@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/mobile/device_bridge.dart';
 import '../../core/mobile/phone_diagnostic.dart';
+import '../../core/upload/capture_auto_upload.dart';
 import '../../core/upload/field_report_client.dart';
 
 /// After Stop, send the saved `.mdx` to MessageMe and App Builder separately
@@ -13,10 +14,18 @@ Future<void> offerMdxActions(
   BuildContext context, {
   required String path,
   String applicationId = kDiagnosticAndroidPackage,
+  String source = 'auto-upload',
 }) async {
   if (path.isEmpty || !_MdxOfferGate.take(path)) return;
   await deviceBridge.consumePendingMdx();
   if (!context.mounted) return;
+  final uploaded = await CaptureAutoUpload.maybeUpload(
+    context,
+    path: path,
+    applicationId: applicationId,
+    source: source,
+  );
+  if (uploaded || !context.mounted) return;
   final messageMe = await deviceBridge.isPackageInstalled(kMessageMeAndroidPackage);
   var appBuilder = false;
   for (final pkg in kAppBuilderAndroidPackages) {
@@ -143,6 +152,7 @@ Future<void> offerPendingMdx(
     context,
     path: path,
     applicationId: applicationId,
+    source: 'pending',
   );
 }
 

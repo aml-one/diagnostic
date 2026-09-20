@@ -35,6 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _logSaving = false;
   String? _logSaveMessage;
   bool _logSaveOk = false;
+  bool _serverUpload = true;
 
   @override
   void initState() {
@@ -50,8 +51,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _load() async {
     final stored = await ref.read(deepSeekApiKeyProvider.future);
+    final serverUpload = await ref.read(settingsStoreProvider).serverUploadEnabled();
     if (!mounted) return;
-    setState(() => _key.text = stored);
+    setState(() {
+      _key.text = stored;
+      _serverUpload = serverUpload;
+    });
+  }
+
+  Future<void> _setServerUpload(bool value) async {
+    await ref.read(settingsStoreProvider).setServerUploadEnabled(value);
+    if (!mounted) return;
+    setState(() => _serverUpload = value);
   }
 
   Future<void> _save() async {
@@ -176,6 +187,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const DesktopSectionLabel(label: 'Server'),
+                      const SizedBox(height: 6),
+                      SettingsCard(
+                        children: [
+                          SettingsSwitchTile(
+                            secondary: settingsPastelIcon(
+                              Icons.cloud_upload_rounded,
+                              'Upload',
+                            ),
+                            title: const Text('Upload captures to server'),
+                            subtitle:
+                                'Sends each Watch, Diagnose, and self-check automatically.',
+                            value: _serverUpload,
+                            onChanged: _setServerUpload,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       const DesktopSectionLabel(label: 'AI diagnosis'),
                       const SizedBox(height: 6),
                       DesktopPanel(

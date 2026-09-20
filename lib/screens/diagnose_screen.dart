@@ -202,6 +202,7 @@ class _DiagnoseScreenState extends ConsumerState<DiagnoseScreen> {
           context,
           path: file.path,
           applicationId: widget.packageName ?? kDiagnosticAndroidPackage,
+          source: 'diagnose',
         );
       }
     } catch (err) {

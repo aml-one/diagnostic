@@ -1,6 +1,19 @@
 [
   {
     "platform": "diagnosticAndroid",
+    "version": "1.0.9",
+    "buildNumber": 22009,
+    "label": "v1.0.9-260920",
+    "file": "diagnostic-android-arm64-v1.0.9-260920.apk",
+    "sizeBytes": 21625011,
+    "sha256": "0e0ccde915401e5898f5fa7947485203cb7ac7d2bef7f9607ad3750d8d24b5e0",
+    "publishedAt": "2026-09-20T16:53:40.0803659Z",
+    "changelog": [
+      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
+    ]
+  },
+  {
+    "platform": "diagnosticAndroid",
     "version": "1.0.8",
     "buildNumber": 22008,
     "label": "v1.0.8-260920",
@@ -106,6 +119,32 @@
       "[bugfix] Watch keeps logcat running when you leave Diagnostic, so HyperOS does not ask for device logs again",
       "[bugfix] Watch pauses Live as soon as you drag away from the newest lines",
       "[bugfix] Phone Diagnose dumps live logcat on every run, including Refresh, instead of replaying the frozen Watch snapshot"
+    ]
+  },
+  {
+    "platform": "diagnosticLinux",
+    "version": "1.0.9",
+    "buildNumber": 10009,
+    "label": "v1.0.9-260920",
+    "file": "diagnostic-linux-x64-v1.0.9-260920.deb",
+    "sizeBytes": 14335720,
+    "sha256": "c05613c1571ddcf901136bffe251ae98eb233d225e621c983f1ebd8f79abab2c",
+    "publishedAt": "2026-09-20T16:55:25.6965587Z",
+    "changelog": [
+      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
+    ]
+  },
+  {
+    "platform": "diagnosticWindows",
+    "version": "1.0.9",
+    "buildNumber": 10009,
+    "label": "v1.0.9-260920",
+    "file": "diagnostic-windows-x64-v1.0.9-260920.zip",
+    "sizeBytes": 19556290,
+    "sha256": "9e84398fba223394099f2d99cf77f5a341e52651812dc1c51cf1745f11d7cfa7",
+    "publishedAt": "2026-09-20T16:54:35.6236929Z",
+    "changelog": [
+      "[feature] Watch, Diagnose, and self-check now upload to the server automatically (Settings switch, on by default)"
     ]
   },
   {
