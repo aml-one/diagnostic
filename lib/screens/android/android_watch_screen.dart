@@ -32,7 +32,8 @@ class AndroidWatchScreen extends StatefulWidget {
 }
 
 class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
-  static const _maxLines = 400;
+  static const _maxLinesNormal = 400;
+  static const _maxLinesOneDrop = 1500;
   static const _uiCoalesce = Duration(milliseconds: 200);
 
   final _lines = <CollapsedLogcatLine>[];
@@ -56,6 +57,10 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
   OneDropWatchTracker? _dropWatch;
 
   String get _packageName => widget.app?.packageName ?? '';
+
+  int get _maxLines => isOneDropWatchPackage(_packageName)
+      ? _maxLinesOneDrop
+      : _maxLinesNormal;
 
   String get _title {
     final app = widget.app;
@@ -259,7 +264,9 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
       }
       if (_dropWatch?.ingest(parsed) == true) dropDirty = true;
       if (!passesLogcatLevelFilter(parsed, _levels)) continue;
-      if (_hideSpam && isLogcatDisplayNoise(parsed)) continue;
+      final dropDeep = isOneDropWatchPackage(_packageName) &&
+          (isOneDropWatchLine(parsed) || isOneDropNearbyTag(parsed.tag));
+      if (_hideSpam && !dropDeep && isLogcatDisplayNoise(parsed)) continue;
       if (appendCollapsed(_lines, parsed)) {
         added++;
       } else {

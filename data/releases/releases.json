@@ -1,6 +1,19 @@
 [
   {
     "platform": "diagnosticAndroid",
+    "version": "1.1.3",
+    "buildNumber": 22103,
+    "label": "v1.1.3-260920",
+    "file": "diagnostic-android-arm64-v1.1.3-260920.apk",
+    "sizeBytes": 21690547,
+    "sha256": "b05168ee7ed075f26437a05361f8c68de1e7f4c5b6d4c0f8618dd39f38cd0939",
+    "publishedAt": "2026-09-20T19:14:56.3212401Z",
+    "changelog": [
+      "[improvement] One Drop Watch keeps a longer handshake trace \u2014 Bluetooth, hotspot, and Wi-Fi join notes \u2014 so a failed Nearby send can be diagnosed"
+    ]
+  },
+  {
+    "platform": "diagnosticAndroid",
     "version": "1.1.2",
     "buildNumber": 22102,
     "label": "v1.1.2-260920",
@@ -161,6 +174,58 @@
       "[bugfix] Watch keeps logcat running when you leave Diagnostic, so HyperOS does not ask for device logs again",
       "[bugfix] Watch pauses Live as soon as you drag away from the newest lines",
       "[bugfix] Phone Diagnose dumps live logcat on every run, including Refresh, instead of replaying the frozen Watch snapshot"
+    ]
+  },
+  {
+    "platform": "diagnosticMacosIntel",
+    "version": "1.1.3",
+    "buildNumber": 10103,
+    "label": "v1.1.3-260920",
+    "file": "diagnostic-macos-intel-v1.1.3-260920.dmg",
+    "sizeBytes": 17336830,
+    "sha256": "c37ec9c575f61d222a9876b783bd50392a7cba964a34db03720cdb6e6bcb631a",
+    "publishedAt": "2026-09-20T19:23:57.3066586Z",
+    "changelog": [
+      "[improvement] One Drop Watch keeps a longer handshake trace \u2014 Bluetooth, hotspot, and Wi-Fi join notes \u2014 so a failed Nearby send can be diagnosed"
+    ]
+  },
+  {
+    "platform": "diagnosticMacos",
+    "version": "1.1.3",
+    "buildNumber": 10103,
+    "label": "v1.1.3-260920",
+    "file": "diagnostic-macos-silicon-v1.1.3-260920.dmg",
+    "sizeBytes": 15976220,
+    "sha256": "67372acb940197052ee3d1ea9f7eb81a2d915446d2c84ab4ec96bc5ab33d31c6",
+    "publishedAt": "2026-09-20T19:23:19.8103791Z",
+    "changelog": [
+      "[improvement] One Drop Watch keeps a longer handshake trace \u2014 Bluetooth, hotspot, and Wi-Fi join notes \u2014 so a failed Nearby send can be diagnosed"
+    ]
+  },
+  {
+    "platform": "diagnosticLinux",
+    "version": "1.1.3",
+    "buildNumber": 10103,
+    "label": "v1.1.3-260920",
+    "file": "diagnostic-linux-x64-v1.1.3-260920.deb",
+    "sizeBytes": 14338290,
+    "sha256": "26e22060c20189e681450c301cccad0664514224e42cf99c35abe3bb439901a8",
+    "publishedAt": "2026-09-20T19:20:34.0145394Z",
+    "changelog": [
+      "[improvement] One Drop Watch keeps a longer handshake trace \u2014 Bluetooth, hotspot, and Wi-Fi join notes \u2014 so a failed Nearby send can be diagnosed"
+    ]
+  },
+  {
+    "platform": "diagnosticWindows",
+    "version": "1.1.3",
+    "buildNumber": 10103,
+    "label": "v1.1.3-260920",
+    "file": "diagnostic-windows-x64-v1.1.3-260920.zip",
+    "sizeBytes": 19558074,
+    "sha256": "70387d919638e610884691971e67db8c4017448133118be6592fa621bcacf770",
+    "publishedAt": "2026-09-20T19:19:00.1720261Z",
+    "changelog": [
+      "[improvement] One Drop Watch keeps a longer handshake trace \u2014 Bluetooth, hotspot, and Wi-Fi join notes \u2014 so a failed Nearby send can be diagnosed"
     ]
   },
   {
