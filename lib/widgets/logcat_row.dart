@@ -12,6 +12,7 @@ class LogcatRow extends StatelessWidget {
     required this.zebra,
     this.dimmed = false,
     this.stacked = false,
+    this.repeatCount = 1,
   });
 
   final LogcatLine line;
@@ -20,6 +21,9 @@ class LogcatRow extends StatelessWidget {
 
   /// Phone layout: time · type · tag on the first line, wrapping message below.
   final bool stacked;
+
+  /// Consecutive identical lines folded into this row. `1` shows no bubble.
+  final int repeatCount;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +51,14 @@ class LogcatRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    if (repeatCount > 1) ...[
+                      LogcatRepeatBubble(
+                        count: repeatCount,
+                        color: accent,
+                        fade: fade,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     Text(
                       formatLogcatTime(line.timestamp),
                       maxLines: 1,
@@ -78,6 +90,14 @@ class LogcatRow extends StatelessWidget {
             )
           : Row(
               children: [
+                if (repeatCount > 1) ...[
+                  LogcatRepeatBubble(
+                    count: repeatCount,
+                    color: accent,
+                    fade: fade,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 SizedBox(
                   width: 72,
                   child: Text(
@@ -108,6 +128,43 @@ class LogcatRow extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+}
+
+class LogcatRepeatBubble extends StatelessWidget {
+  const LogcatRepeatBubble({
+    super.key,
+    required this.count,
+    required this.color,
+    required this.fade,
+  });
+
+  final int count;
+  final Color color;
+  final double fade;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 999 ? '999+' : '×$count';
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16 * fade),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.42 * fade)),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: Desk.mono(
+          size: 9.5,
+          weight: FontWeight.w800,
+          height: 1,
+          color: color.withValues(alpha: fade),
+        ),
+      ),
     );
   }
 }

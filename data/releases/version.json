@@ -1,71 +1,62 @@
 {
   "diagnosticWindows": {
-    "version": "1.1.0",
-    "buildNumber": 10100,
-    "label": "v1.1.0-260920",
-    "file": "diagnostic-windows-x64-v1.1.0-260920.zip",
-    "sizeBytes": 19556158,
-    "sha256": "4d17697ebae614a7cd99ba2067c1b419360a31dbd537cbcae97177fbe62e6672",
-    "publishedAt": "2026-09-20T17:12:06.4739283Z",
+    "version": "1.1.1",
+    "buildNumber": 10101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-windows-x64-v1.1.1-260920.zip",
+    "sizeBytes": 19558092,
+    "sha256": "35ca458d2dd2603450e499a50a3bd8b3b54c12963adb02f94f44eaac4b8b9b81",
+    "publishedAt": "2026-09-20T17:32:35.3121200Z",
     "changelog": [
-      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
-      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
     ]
   },
   "diagnosticLinux": {
-    "version": "1.1.0",
-    "buildNumber": 10100,
-    "label": "v1.1.0-260920",
-    "file": "diagnostic-linux-x64-v1.1.0-260920.deb",
-    "sizeBytes": 14335604,
-    "sha256": "2fd2fa48d46c726945d4aa706288865c5b9b7604793b4e0c2da8ce7f7a8dfd14",
-    "publishedAt": "2026-09-20T17:12:48.2746766Z",
+    "version": "1.1.1",
+    "buildNumber": 10101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-linux-x64-v1.1.1-260920.deb",
+    "sizeBytes": 14338526,
+    "sha256": "4ec92759c7baf683baa76601c5acefa3cf8d44462f2ebf6a4666ac4d32acd0a0",
+    "publishedAt": "2026-09-20T17:33:20.2932217Z",
     "changelog": [
-      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
-      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
     ]
   },
   "diagnosticMacos": {
-    "version": "1.0.8",
-    "buildNumber": 10008,
-    "label": "v1.0.8-260920",
-    "file": "diagnostic-macos-silicon-v1.0.8-260920.dmg",
-    "sizeBytes": 15945914,
-    "sha256": "32ed06b3c0c1dd084c0333dc2fccd62406d24c4cf10262510ccef899ef3232b9",
-    "publishedAt": "2026-09-20T06:48:53.5870520Z",
+    "version": "1.1.1",
+    "buildNumber": 10101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-macos-silicon-v1.1.1-260920.dmg",
+    "sizeBytes": 15974429,
+    "sha256": "e4bb13d14c44338009ec25f6861200fea7802a54952b0002960939f9221f4677",
+    "publishedAt": "2026-09-20T17:33:51.9478890Z",
     "changelog": [
-      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
-      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
-      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
-      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
     ]
   },
   "diagnosticMacosIntel": {
-    "version": "1.0.8",
-    "buildNumber": 10008,
-    "label": "v1.0.8-260920",
-    "file": "diagnostic-macos-intel-v1.0.8-260920.dmg",
-    "sizeBytes": 17305208,
-    "sha256": "ab17bd3e4a3fff9f220ca9e95c9e261f83cb2854f6b7a50c20927b4d8a96f710",
-    "publishedAt": "2026-09-20T06:49:32.7670643Z",
+    "version": "1.1.1",
+    "buildNumber": 10101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-macos-intel-v1.1.1-260920.dmg",
+    "sizeBytes": 17334664,
+    "sha256": "951d97978328981614814982b13871b2a4a5e3e5da6f5258ecfc4a81853818f6",
+    "publishedAt": "2026-09-20T17:34:23.9422834Z",
     "changelog": [
-      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
-      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
-      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
-      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
     ]
   },
   "diagnosticAndroid": {
-    "version": "1.1.0",
-    "buildNumber": 22100,
-    "label": "v1.1.0-260920",
-    "file": "diagnostic-android-arm64-v1.1.0-260920.apk",
-    "sizeBytes": 21690547,
-    "sha256": "1389678b03a8e29c4d9a2fc6a8421064cadcb4626668a4738a377399ff662f45",
-    "publishedAt": "2026-09-20T17:08:09.8931043Z",
+    "version": "1.1.1",
+    "buildNumber": 22101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-android-arm64-v1.1.1-260920.apk",
+    "sizeBytes": 21690543,
+    "sha256": "4fd88bc33adf150bd076fcc6a35acff30bceae7e98b93e0f5a19c31eac69bea9",
+    "publishedAt": "2026-09-20T17:31:23.3692808Z",
     "changelog": [
-      "[bugfix] OneDrop Watch shows OneDrop/OneDropP2p logs instead of launcher IconCustomizer lines that only mention the package name",
-      "[bugfix] OneDrop Watch replays send and receive logs after a transfer finishes, instead of opening on an empty live tail"
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
     ]
   }
 }

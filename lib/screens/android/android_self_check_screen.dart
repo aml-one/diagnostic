@@ -1,6 +1,7 @@
 import 'package:aml_ui/aml_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/logcat/logcat_collapse.dart';
 import '../../core/mobile/phone_diagnostic.dart';
 import '../../core/mobile/self_check.dart';
 import '../../widgets/logcat_row.dart';
@@ -43,10 +44,11 @@ class _AndroidSelfCheckScreenState extends State<AndroidSelfCheckScreen> {
     final muted = AmlTheme.mutedOf(context);
     final lines = check.lines;
     final previewCap = AndroidSelfCheckScreen._previewCap;
-    final preview = lines.length <= previewCap
+    final previewSource = lines.length <= previewCap
         ? lines
         : lines.sublist(lines.length - previewCap);
-    final skipped = lines.length - preview.length;
+    final preview = collapseLogcatLines(previewSource);
+    final skipped = lines.length - previewSource.length;
     return Scaffold(
       backgroundColor: dark ? AmlTheme.darkBg : kSettingsPageBackground,
       body: Stack(
@@ -136,11 +138,12 @@ class _AndroidSelfCheckScreenState extends State<AndroidSelfCheckScreen> {
                             ),
                           );
                         }
-                        final line = preview[index - (skipped > 0 ? 1 : 0)];
+                        final row = preview[index - (skipped > 0 ? 1 : 0)];
                         return LogcatRow(
-                          line: line,
+                          line: row.line,
                           zebra: index.isOdd,
                           stacked: true,
+                          repeatCount: row.count,
                         );
                       },
                     ),

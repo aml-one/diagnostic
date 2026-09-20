@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:aml_ui/aml_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/logcat/logcat_collapse.dart';
 import '../../core/logcat/logcat_parser.dart';
 import '../../core/logcat/watch_line_keep.dart';
 import '../../core/mobile/device_bridge.dart';
@@ -34,7 +35,7 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
   static const _maxLines = 400;
   static const _uiCoalesce = Duration(milliseconds: 200);
 
-  final _lines = <LogcatLine>[];
+  final _lines = <CollapsedLogcatLine>[];
   final _levels = allLogcatLevels();
   final _scroll = ScrollController();
   final _pidGate = LogcatPidGate();
@@ -232,6 +233,7 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
     final rawLines = event['lines'];
     if (rawLines is! List) return;
     var added = 0;
+    var collapsed = false;
     var dropDirty = false;
     for (final item in rawLines) {
       final parsed = LogcatParser.parse('$item');
@@ -252,10 +254,13 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
       if (_dropWatch?.ingest(parsed) == true) dropDirty = true;
       if (!passesLogcatLevelFilter(parsed, _levels)) continue;
       if (_hideSpam && isLogcatDisplayNoise(parsed)) continue;
-      _lines.add(parsed);
-      added++;
+      if (appendCollapsed(_lines, parsed)) {
+        added++;
+      } else {
+        collapsed = true;
+      }
     }
-    if (added == 0 && !dropDirty) return;
+    if (added == 0 && !collapsed && !dropDirty) return;
     if (added > 0 && !_followTail) {
       _pendingNew += added;
     }
@@ -311,7 +316,7 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
           packageName: _packageName.isEmpty ? null : _packageName,
           appLabel: _title,
           onDevice: true,
-          logLines: List<LogcatLine>.of(_lines),
+          logLines: [for (final row in _lines) row.toDiagnoseLine()],
         ),
       ),
     );
@@ -896,7 +901,7 @@ class _WatchLogPane extends StatelessWidget {
     required this.onScroll,
   });
 
-  final List<LogcatLine> lines;
+  final List<CollapsedLogcatLine> lines;
   final bool empty;
   final Color muted;
   final ScrollController controller;
@@ -944,10 +949,12 @@ class _WatchLogPane extends StatelessWidget {
                   cacheExtent: 240,
                   itemBuilder: (context, index) {
                     final lineIndex = lines.length - 1 - index;
+                    final row = lines[lineIndex];
                     return LogcatRow(
-                      line: lines[lineIndex],
+                      line: row.line,
                       zebra: lineIndex.isOdd,
                       stacked: true,
+                      repeatCount: row.count,
                     );
                   },
                 ),

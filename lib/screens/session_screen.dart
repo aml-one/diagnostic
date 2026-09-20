@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import '../core/adb/adb_client.dart';
 import '../core/adb/device_details.dart';
 import '../core/logcat/anr_detector.dart';
+import '../core/logcat/logcat_collapse.dart';
 import '../core/logcat/logcat_parser.dart';
 import '../core/logcat/logcat_session.dart';
 import '../core/onedrop/onedrop_watch.dart';
@@ -52,7 +53,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   final _lines = <LogcatLine>[];
 
   /// Filtered rows shown in the list. Updated only on the UI tick.
-  final _visible = <_VisibleLine>[];
+  final _visible = <CollapsedLogcatLine>[];
 
   /// Bumps when [_visible] changes so the log pane rebuilds without
   /// rebuilding the whole session chrome on every log line.
@@ -282,14 +283,16 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       if (hideSpam && isLogcatDisplayNoise(line)) continue;
       if (pid == null || showAll) {
         if (!_passesLevel(line, levels)) continue;
-        _visible.add(
-          _VisibleLine(line: line, dimmed: pid != null && line.pid != pid),
+        appendCollapsed(
+          _visible,
+          line,
+          dimmed: pid != null && line.pid != pid,
         );
         continue;
       }
       if (!line.isParsed) {
         if (_filterIncludeUnparsed && _lastLevelShown) {
-          _visible.add(_VisibleLine(line: line, dimmed: false));
+          appendCollapsed(_visible, line);
         }
         continue;
       }
@@ -297,7 +300,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       _filterIncludeUnparsed = match;
       if (!match) continue;
       if (!_passesLevel(line, levels)) continue;
-      _visible.add(_VisibleLine(line: line, dimmed: false));
+      appendCollapsed(_visible, line);
     }
     _filterFrom = _lines.length;
 
@@ -353,11 +356,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   /// Exact text currently shown in the log pane (respects the PID filter).
-  String _visibleLogText(List<_VisibleLine> visible) {
+  String _visibleLogText(List<CollapsedLogcatLine> visible) {
     if (visible.isEmpty) return '';
     final buf = StringBuffer();
     for (final row in visible) {
-      buf.writeln(row.line.raw);
+      buf.writeln(collapsedLogcatExport(row));
     }
     return buf.toString();
   }
@@ -407,7 +410,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
-  Future<void> _sendVisibleToAppBuilder(List<_VisibleLine> visible) async {
+  Future<void> _sendVisibleToAppBuilder(List<CollapsedLogcatLine> visible) async {
     await _sendLogToAppBuilder(
       kind: FieldReportKinds.logcatExcerpt,
       textBody: _visibleLogText(visible),
@@ -423,7 +426,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
   }
 
-  Future<void> _copyVisible(List<_VisibleLine> visible) async {
+  Future<void> _copyVisible(List<CollapsedLogcatLine> visible) async {
     final text = _visibleLogText(visible);
     if (text.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
@@ -437,7 +440,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
   }
 
-  Future<void> _saveVisible(List<_VisibleLine> visible) async {
+  Future<void> _saveVisible(List<CollapsedLogcatLine> visible) async {
     final text = _visibleLogText(visible);
     if (text.isEmpty) return;
     try {
@@ -785,13 +788,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
 }
 
-class _VisibleLine {
-  const _VisibleLine({required this.line, required this.dimmed});
-
-  final LogcatLine line;
-  final bool dimmed;
-}
-
 /// One compact toolbar row: PID filter switch, its hint, line count, and
 /// copy / save actions for whatever is currently visible.
 class _LogToolbar extends StatelessWidget {
@@ -962,7 +958,7 @@ class _LogPane extends StatelessWidget {
     required this.starting,
   });
 
-  final List<_VisibleLine> lines;
+  final List<CollapsedLogcatLine> lines;
   final ScrollController controller;
   final bool starting;
 
@@ -998,6 +994,7 @@ class _LogPane extends StatelessWidget {
                       line: row.line,
                       dimmed: row.dimmed,
                       zebra: index.isOdd,
+                      repeatCount: row.count,
                     );
                   },
                 ),

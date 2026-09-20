@@ -1,6 +1,19 @@
 [
   {
     "platform": "diagnosticAndroid",
+    "version": "1.1.1",
+    "buildNumber": 22101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-android-arm64-v1.1.1-260920.apk",
+    "sizeBytes": 21690543,
+    "sha256": "4fd88bc33adf150bd076fcc6a35acff30bceae7e98b93e0f5a19c31eac69bea9",
+    "publishedAt": "2026-09-20T17:31:23.3692808Z",
+    "changelog": [
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+    ]
+  },
+  {
+    "platform": "diagnosticAndroid",
     "version": "1.1.0",
     "buildNumber": 22100,
     "label": "v1.1.0-260920",
@@ -133,6 +146,58 @@
       "[bugfix] Watch keeps logcat running when you leave Diagnostic, so HyperOS does not ask for device logs again",
       "[bugfix] Watch pauses Live as soon as you drag away from the newest lines",
       "[bugfix] Phone Diagnose dumps live logcat on every run, including Refresh, instead of replaying the frozen Watch snapshot"
+    ]
+  },
+  {
+    "platform": "diagnosticMacosIntel",
+    "version": "1.1.1",
+    "buildNumber": 10101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-macos-intel-v1.1.1-260920.dmg",
+    "sizeBytes": 17334664,
+    "sha256": "951d97978328981614814982b13871b2a4a5e3e5da6f5258ecfc4a81853818f6",
+    "publishedAt": "2026-09-20T17:34:23.9422834Z",
+    "changelog": [
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+    ]
+  },
+  {
+    "platform": "diagnosticMacos",
+    "version": "1.1.1",
+    "buildNumber": 10101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-macos-silicon-v1.1.1-260920.dmg",
+    "sizeBytes": 15974429,
+    "sha256": "e4bb13d14c44338009ec25f6861200fea7802a54952b0002960939f9221f4677",
+    "publishedAt": "2026-09-20T17:33:51.9478890Z",
+    "changelog": [
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+    ]
+  },
+  {
+    "platform": "diagnosticLinux",
+    "version": "1.1.1",
+    "buildNumber": 10101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-linux-x64-v1.1.1-260920.deb",
+    "sizeBytes": 14338526,
+    "sha256": "4ec92759c7baf683baa76601c5acefa3cf8d44462f2ebf6a4666ac4d32acd0a0",
+    "publishedAt": "2026-09-20T17:33:20.2932217Z",
+    "changelog": [
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+    ]
+  },
+  {
+    "platform": "diagnosticWindows",
+    "version": "1.1.1",
+    "buildNumber": 10101,
+    "label": "v1.1.1-260920",
+    "file": "diagnostic-windows-x64-v1.1.1-260920.zip",
+    "sizeBytes": 19558092,
+    "sha256": "35ca458d2dd2603450e499a50a3bd8b3b54c12963adb02f94f44eaac4b8b9b81",
+    "publishedAt": "2026-09-20T17:32:35.3121200Z",
+    "changelog": [
+      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
     ]
   },
   {
