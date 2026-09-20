@@ -3,6 +3,7 @@ import 'dart:io';
 import '../app_version.dart';
 import '../logcat/logcat_parser.dart';
 import '../mobile/mdx_file.dart';
+import '../onedrop/onedrop_watch.dart';
 import 'device_bridge.dart';
 import 'phone_diagnostic.dart';
 
@@ -76,6 +77,7 @@ bool _keepSelfCheckLine({
   if (line.pid == myPid) return false;
   if (diagnosticPids.contains(line.pid)) return true;
   if (_mentionsPackage(line.raw, packageName)) return true;
+  if (isOneDropWatchLine(line)) return true;
   if (!line.isParsed && line.message.trimLeft().startsWith('at ')) {
     return diagnosticPids.isNotEmpty;
   }
@@ -134,7 +136,8 @@ DiagnosticSelfCheck analyzeDiagnosticSelfCheck({
       kept.add(line);
     }
   }
-  if (kept.isEmpty || !kept.any(_looksLikeIssue)) {
+  if (kept.isEmpty ||
+      (!kept.any(_looksLikeIssue) && !kept.any(isOneDropWatchLine))) {
     return DiagnosticSelfCheck.empty;
   }
   final fingerprint = selfCheckFingerprint(kept);

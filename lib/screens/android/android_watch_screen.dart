@@ -245,12 +245,18 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
         packageName: _packageName.isEmpty ? null : _packageName,
         levelsKey: logcatLevelsKey(_levels),
         hideSpam: _hideSpam,
+        uidScoped: _packageName.isNotEmpty &&
+            !isOneDropWatchPackage(_packageName),
       )) {
         continue;
       }
-      // OneDrop tags are the app even when the line's pid is an older
-      // process (Watch opened after send) or a native helper.
-      if (!isOneDropWatchLine(parsed) && !_pidGate.accept(parsed)) continue;
+      // Native already filtered. Pid gate only keeps stack-frame continuations
+      // so ColorOS `at …` floods cannot ANR Watch again.
+      if (!parsed.isParsed) {
+        if (!_pidGate.accept(parsed)) continue;
+      } else {
+        _pidGate.accept(parsed);
+      }
       if (_dropWatch?.ingest(parsed) == true) dropDirty = true;
       if (!passesLogcatLevelFilter(parsed, _levels)) continue;
       if (_hideSpam && isLogcatDisplayNoise(parsed)) continue;

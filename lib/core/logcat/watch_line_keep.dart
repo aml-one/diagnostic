@@ -15,6 +15,19 @@ const kLogcatLifecycleTags = {
   'WindowManager',
 };
 
+const kOneDropNearbyTags = {
+  'WifiService',
+  'WifiClient',
+  'WifiNative',
+  'WifiManager',
+  'LocationManager',
+  'NsdManager',
+  'ConnectivityService',
+  'NearbyConnections',
+  'BluetoothAdapter',
+  'BluetoothLeScanner',
+};
+
 /// Whether a Watch line belongs to [packageName] when pidof cannot see it.
 ///
 /// OEM launchers log `one.aml.onedrop` in the message. OneDrop's own lines
@@ -39,16 +52,23 @@ bool shouldKeepWatchLine(
     return false;
   }
   if (_isTaggedAppLog(line, pkg)) return true;
+  if (pkg == kOneDropPackageName && isOneDropNearbyTag(line.tag)) return true;
   if (pids.isNotEmpty) {
     final pid = line.pid;
-    return pid != null && pids.contains(pid);
+    if (pid != null && pids.contains(pid)) return true;
   }
   if (uidScoped && pkg != null && pkg.isNotEmpty) return true;
   if (pkg == null || pkg.isEmpty) return true;
   if (kLogcatLifecycleTags.contains(line.tag) && line.raw.contains(pkg)) {
     return true;
   }
+  if (pkg == kOneDropPackageName && line.raw.contains(pkg)) return true;
   return false;
+}
+
+bool isOneDropNearbyTag(String tag) {
+  if (tag.startsWith('BtGatt') || tag.startsWith('Bluetooth')) return true;
+  return kOneDropNearbyTags.contains(tag);
 }
 
 bool _isTaggedAppLog(LogcatLine line, String? pkg) {

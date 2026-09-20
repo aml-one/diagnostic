@@ -70,6 +70,7 @@ object LogcatEngine {
     @Volatile private var appContext: Context? = null
     @Volatile private var targetUid: Int? = null
     @Volatile private var uidScoped: Boolean = false
+    @Volatile private var uidFilterOk: Boolean = true
     @Volatile private var logcatGeneration: Int = 0
 
     private val noiseTags = setOf(
@@ -87,6 +88,18 @@ object LogcatEngine {
         "IconPolicy",
     )
     private val oneDropTags = setOf("OneDrop", "OneDropP2p", "OneDropEngine")
+    private val nearbyTags = setOf(
+        "WifiService",
+        "WifiClient",
+        "WifiNative",
+        "WifiManager",
+        "LocationManager",
+        "NsdManager",
+        "ConnectivityService",
+        "NearbyConnections",
+        "BluetoothAdapter",
+        "BluetoothLeScanner",
+    )
     private val lifecycleTags = setOf(
         "ActivityManager",
         "ActivityTaskManager",
@@ -134,6 +147,7 @@ object LogcatEngine {
     }
 
     fun setFilter(packageName: String?, pid: Int?, levels: String?, hideSpam: Boolean?) {
+        val previousPackage = targetPackage
         targetPackage = packageName?.trim()?.ifEmpty { null }
         if (!levels.isNullOrBlank()) levelsKey = levels
         if (hideSpam != null) this.hideSpam = hideSpam
@@ -141,10 +155,16 @@ object LogcatEngine {
         targetPids = if (pid != null) lookedUp + pid else lookedUp
         targetPid = pid ?: targetPids.firstOrNull()
         targetUid = targetPackage?.let(::uidOf)
-        val tagScoped = targetPackage == oneDropPackage
         liveKeep.lastParsedKept = false
-        if (tagScoped != uidScoped) {
-            uidScoped = tagScoped
+        uidScoped = targetPackage != null &&
+            targetPackage != oneDropPackage &&
+            targetUid != null &&
+            uidFilterOk
+        if (previousPackage != targetPackage) {
+            uidFilterOk = true
+            uidScoped = targetPackage != null &&
+                targetPackage != oneDropPackage &&
+                targetUid != null
             logcatGeneration++
             process?.destroy()
         }
@@ -358,6 +378,22 @@ object LogcatEngine {
             kept,
             cap,
         )
+        readLogcatDump(
+            listOf(
+                "/system/bin/logcat",
+                "-d",
+                "-v",
+                "threadtime",
+                "-t",
+                "800",
+                "-s",
+                "OneDrop:V",
+                "OneDropP2p:V",
+                "OneDropEngine:V",
+            ),
+            kept,
+            cap,
+        )
         return if (kept.size <= cap) {
             kept
         } else {
@@ -451,6 +487,7 @@ object LogcatEngine {
                 break
             }
             process = proc
+            val startedAt = SystemClock.uptimeMillis()
             try {
                 proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use { reader ->
                     while (running.get() && gen == logcatGeneration) {
@@ -466,6 +503,16 @@ object LogcatEngine {
                 } catch (_: Exception) {
                 }
                 if (process === proc) process = null
+            }
+            if (!running.get()) break
+            if (uidFilterOk &&
+                targetUid != null &&
+                targetPackage != oneDropPackage &&
+                SystemClock.uptimeMillis() - startedAt < 800L
+            ) {
+                uidFilterOk = false
+                uidScoped = false
+                Log.w(TAG, "logcat --uid rejected; following unfiltered")
             }
             if (!running.get()) break
             if (gen == logcatGeneration) {
@@ -490,6 +537,7 @@ object LogcatEngine {
             Log.w(TAG, "logcat dump failed: ${error.message}")
             return
         }
+        val chunk = ArrayList<String>(MAX_BATCH)
         try {
             proc.inputStream.bufferedReader(StandardCharsets.UTF_8).use { reader ->
                 while (running.get()) {
@@ -497,7 +545,11 @@ object LogcatEngine {
                     if (!shouldKeep(line, dumpKeep)) continue
                     remember(line)
                     if (recording.get() && !paused.get()) appendRecord(line)
-                    batch.add(line)
+                    chunk.add(line)
+                    if (chunk.size >= MAX_BATCH) {
+                        emit(mapOf("type" to "batch", "lines" to ArrayList(chunk)))
+                        chunk.clear()
+                    }
                 }
             }
             if (!proc.waitFor(10, TimeUnit.SECONDS)) {
@@ -507,36 +559,38 @@ object LogcatEngine {
             Log.w(TAG, "logcat dump read failed: ${error.message}")
             proc.destroyForcibly()
         }
-        if (batch.isNotEmpty()) {
-            main.post { flushNow() }
+        if (chunk.isNotEmpty()) {
+            emit(mapOf("type" to "batch", "lines" to chunk))
         }
         Log.i(TAG, "seeded Watch dump pkg=$targetPackage")
     }
 
     private fun dumpCommand(): List<String> {
-        val args = mutableListOf("/system/bin/logcat", "-d", "-v", "threadtime")
-        if (targetPackage == oneDropPackage) {
-            args.addAll(oneDropTagArgs())
-        } else {
-            args.addAll(listOf("-t", "4000"))
-        }
+        val args = mutableListOf(
+            "/system/bin/logcat",
+            "-d",
+            "-v",
+            "threadtime",
+            "-t",
+            "4000",
+        )
+        appendUidArgs(args)
         return args
     }
 
     private fun followCommand(): List<String> {
         val args = mutableListOf("logcat", "-v", "threadtime")
-        if (targetPackage == oneDropPackage) {
-            args.addAll(oneDropTagArgs())
-        }
+        appendUidArgs(args)
         return args
     }
 
-    private fun oneDropTagArgs(): List<String> = listOf(
-        "-s",
-        "OneDrop:V",
-        "OneDropP2p:V",
-        "OneDropEngine:V",
-    )
+    private fun appendUidArgs(args: MutableList<String>) {
+        if (!uidFilterOk) return
+        if (targetPackage == oneDropPackage) return
+        val uid = targetUid ?: return
+        args.add("--uid")
+        args.add(uid.toString())
+    }
 
     private fun onLine(raw: String) {
         if (!shouldKeep(raw, liveKeep)) return
@@ -572,15 +626,21 @@ object LogcatEngine {
             hideSpam && noiseTags.contains(tag) -> false
             levelsKey.isNotEmpty() && !levelsKey.contains(level) -> false
             isTaggedAppLog(tag, message, pkg) -> true
+            pkg == oneDropPackage && isOneDropNearbyTag(tag) -> true
             pids.isNotEmpty() && pid != null && pid in pids -> true
-            pids.isNotEmpty() -> false
             uidScoped && !pkg.isNullOrBlank() -> true
             pkg.isNullOrBlank() -> true
             lifecycleTags.contains(tag) && raw.contains(pkg) -> true
+            pkg == oneDropPackage && raw.contains(pkg) -> true
             else -> false
         }
         state.lastParsedKept = keep
         return keep
+    }
+
+    private fun isOneDropNearbyTag(tag: String): Boolean {
+        if (tag.startsWith("BtGatt") || tag.startsWith("Bluetooth")) return true
+        return tag in nearbyTags
     }
 
     private fun isTaggedAppLog(tag: String, message: String, pkg: String?): Boolean {

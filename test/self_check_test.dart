@@ -91,4 +91,18 @@ void main() {
     );
     expect(again.hasLogs, isFalse);
   });
+
+  test('keeps OneDrop Watch tags so a Diagnostic self-check includes nearby logs', () {
+    const raw = [
+      '09-20 21:22:18.381  1715  1715 I OneDrop: send start to=Pixel via=ble files=1',
+      '09-20 21:22:18.400  1715  1715 I OneDropP2p: Location is off — BLE scan is empty on most phones',
+    ];
+    final check = analyzeDiagnosticSelfCheck(
+      rawLines: raw,
+      myPid: 42,
+      packageName: pkg,
+    );
+    expect(check.hasLogs, isTrue);
+    expect(check.lines.any((line) => line.message.contains('send start')), isTrue);
+  });
 }

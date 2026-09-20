@@ -93,4 +93,35 @@ void main() {
     final gate = LogcatPidGate(9999);
     expect(gate.accept(line), isFalse);
   });
+
+  test('keeps another app flutter line when uid-scoped even if pidof is empty', () {
+    const raw =
+        '09-20 19:56:04.000  5555  5555 I flutter: MessageMe started';
+    expect(
+      shouldKeepWatchLine(
+        _parse(raw),
+        pids: {},
+        packageName: 'one.aml.messageme',
+        levelsKey: 'VDIWEF',
+        hideSpam: true,
+        uidScoped: true,
+      ),
+      isTrue,
+    );
+  });
+
+  test('keeps OneDrop BluetoothGatt lines', () {
+    const raw =
+        '09-20 19:56:05.000  210  210 I BluetoothGatt: onClientConnectionState status=0';
+    expect(
+      shouldKeepWatchLine(
+        _parse(raw),
+        pids: {},
+        packageName: kOneDropPackageName,
+        levelsKey: 'VDIWEF',
+        hideSpam: true,
+      ),
+      isTrue,
+    );
+  });
 }

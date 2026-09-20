@@ -1,62 +1,72 @@
 {
   "diagnosticWindows": {
-    "version": "1.1.1",
-    "buildNumber": 10101,
-    "label": "v1.1.1-260920",
-    "file": "diagnostic-windows-x64-v1.1.1-260920.zip",
-    "sizeBytes": 19558092,
-    "sha256": "35ca458d2dd2603450e499a50a3bd8b3b54c12963adb02f94f44eaac4b8b9b81",
-    "publishedAt": "2026-09-20T17:32:35.3121200Z",
+    "version": "1.1.2",
+    "buildNumber": 10102,
+    "label": "v1.1.2-260920",
+    "file": "diagnostic-windows-x64-v1.1.2-260920.zip",
+    "sizeBytes": 19558039,
+    "sha256": "bb91cf987a3c8ac41d881b05ed17a2cd57c13a9ce9e508623f94cf75db949cbd",
+    "publishedAt": "2026-09-20T18:46:14.0089615Z",
     "changelog": [
-      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+      "[improvement] Watch keeps an app's own logs by UID so pidof misses no longer leave the pane empty",
+      "[improvement] One Drop Watch also keeps send/receive notes and Bluetooth/Wi-Fi lines, not only advertise heartbeats",
+      "[bugfix] Opening Diagnostic no longer ANRs ColorOS while listing installed apps on the UI thread"
     ]
   },
   "diagnosticLinux": {
-    "version": "1.1.1",
-    "buildNumber": 10101,
-    "label": "v1.1.1-260920",
-    "file": "diagnostic-linux-x64-v1.1.1-260920.deb",
-    "sizeBytes": 14338526,
-    "sha256": "4ec92759c7baf683baa76601c5acefa3cf8d44462f2ebf6a4666ac4d32acd0a0",
-    "publishedAt": "2026-09-20T17:33:20.2932217Z",
+    "version": "1.1.2",
+    "buildNumber": 10102,
+    "label": "v1.1.2-260920",
+    "file": "diagnostic-linux-x64-v1.1.2-260920.deb",
+    "sizeBytes": 14337146,
+    "sha256": "cb97efec26ce0d49da2065ae1138daa5ce2698381cdf38e03ebc980b2c993f3c",
+    "publishedAt": "2026-09-20T18:49:36.3560047Z",
     "changelog": [
-      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+      "[improvement] Watch keeps an app's own logs by UID so pidof misses no longer leave the pane empty",
+      "[improvement] One Drop Watch also keeps send/receive notes and Bluetooth/Wi-Fi lines, not only advertise heartbeats",
+      "[bugfix] Opening Diagnostic no longer ANRs ColorOS while listing installed apps on the UI thread"
     ]
   },
   "diagnosticMacos": {
-    "version": "1.1.1",
-    "buildNumber": 10101,
-    "label": "v1.1.1-260920",
-    "file": "diagnostic-macos-silicon-v1.1.1-260920.dmg",
-    "sizeBytes": 15974429,
-    "sha256": "e4bb13d14c44338009ec25f6861200fea7802a54952b0002960939f9221f4677",
-    "publishedAt": "2026-09-20T17:33:51.9478890Z",
+    "version": "1.1.2",
+    "buildNumber": 10102,
+    "label": "v1.1.2-260920",
+    "file": "diagnostic-macos-silicon-v1.1.2-260920.dmg",
+    "sizeBytes": 15974456,
+    "sha256": "7d379ac28d2bc5d8f8b9d9a7ec0e636117967f47509c4bf3d049f8fc2a8772ec",
+    "publishedAt": "2026-09-20T18:54:29.6243530Z",
     "changelog": [
-      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+      "[improvement] Watch keeps an app's own logs by UID so pidof misses no longer leave the pane empty",
+      "[improvement] One Drop Watch also keeps send/receive notes and Bluetooth/Wi-Fi lines, not only advertise heartbeats",
+      "[bugfix] Opening Diagnostic no longer ANRs ColorOS while listing installed apps on the UI thread"
     ]
   },
   "diagnosticMacosIntel": {
-    "version": "1.1.1",
-    "buildNumber": 10101,
-    "label": "v1.1.1-260920",
-    "file": "diagnostic-macos-intel-v1.1.1-260920.dmg",
-    "sizeBytes": 17334664,
-    "sha256": "951d97978328981614814982b13871b2a4a5e3e5da6f5258ecfc4a81853818f6",
-    "publishedAt": "2026-09-20T17:34:23.9422834Z",
+    "version": "1.1.2",
+    "buildNumber": 10102,
+    "label": "v1.1.2-260920",
+    "file": "diagnostic-macos-intel-v1.1.2-260920.dmg",
+    "sizeBytes": 17334617,
+    "sha256": "6d71d546ced8d6160b4193b616a4a273d6db7247dd2208543bbfa0ad3c30c14a",
+    "publishedAt": "2026-09-20T18:55:23.8511189Z",
     "changelog": [
-      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+      "[improvement] Watch keeps an app's own logs by UID so pidof misses no longer leave the pane empty",
+      "[improvement] One Drop Watch also keeps send/receive notes and Bluetooth/Wi-Fi lines, not only advertise heartbeats",
+      "[bugfix] Opening Diagnostic no longer ANRs ColorOS while listing installed apps on the UI thread"
     ]
   },
   "diagnosticAndroid": {
-    "version": "1.1.1",
-    "buildNumber": 22101,
-    "label": "v1.1.1-260920",
-    "file": "diagnostic-android-arm64-v1.1.1-260920.apk",
+    "version": "1.1.2",
+    "buildNumber": 22102,
+    "label": "v1.1.2-260920",
+    "file": "diagnostic-android-arm64-v1.1.2-260920.apk",
     "sizeBytes": 21690543,
-    "sha256": "4fd88bc33adf150bd076fcc6a35acff30bceae7e98b93e0f5a19c31eac69bea9",
-    "publishedAt": "2026-09-20T17:31:23.3692808Z",
+    "sha256": "f642aab435b96b7d0a8a8b16909feed66952c1b9247faa9325282f1bde8425ca",
+    "publishedAt": "2026-09-20T18:43:04.4374320Z",
     "changelog": [
-      "[improvement] Watch folds consecutive identical log lines into one row with a count bubble"
+      "[improvement] Watch keeps an app's own logs by UID so pidof misses no longer leave the pane empty",
+      "[improvement] One Drop Watch also keeps send/receive notes and Bluetooth/Wi-Fi lines, not only advertise heartbeats",
+      "[bugfix] Opening Diagnostic no longer ANRs ColorOS while listing installed apps on the UI thread"
     ]
   }
 }

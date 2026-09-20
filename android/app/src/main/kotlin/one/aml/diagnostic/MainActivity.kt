@@ -51,7 +51,18 @@ class MainActivity : FlutterActivity() {
                             openSettings(call.argument<String>("which") ?: "")
                             result.success(true)
                         }
-                        "listPackages" -> result.success(listPackages())
+                        "listPackages" -> {
+                            Thread {
+                                try {
+                                    val apps = listPackages()
+                                    runOnUiThread { result.success(apps) }
+                                } catch (error: Exception) {
+                                    runOnUiThread {
+                                        result.error("diag", error.message, null)
+                                    }
+                                }
+                            }.start()
+                        }
                         "pidOf" -> {
                             val pkg = call.argument<String>("packageName") ?: ""
                             result.success(LogcatEngine.pidOf(pkg))
