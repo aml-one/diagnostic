@@ -75,4 +75,22 @@ void main() {
     );
     expect(tracker.snapshot().fail, contains('Bluetooth link dropped'));
   });
+
+  test('Diagnose findings put send fail above nearby', () {
+    final findings = oneDropDiagnosisFindings([
+      _line('OneDrop', 'wifi peer Pixel'),
+      _line('OneDrop', 'send start to=Pixel via=ble files=1'),
+      _line('OneDrop', 'send fail to=Pixel reason=timeout'),
+    ]);
+    expect(findings.first, contains('Send failed'));
+    expect(findings, contains('OneDrop: Send failed'));
+    expect(findings.any((f) => f.startsWith('Nearby: Pixel')), isTrue);
+  });
+
+  test('Diagnose findings explain an empty capture', () {
+    expect(
+      oneDropDiagnosisFindings([_line('ActivityManager', 'ANR in foo')]).first,
+      contains('No OneDrop nearby or send lines'),
+    );
+  });
 }

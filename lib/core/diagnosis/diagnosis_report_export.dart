@@ -8,6 +8,7 @@ import '../app_version.dart';
 import '../logcat/anr_detector.dart';
 import '../mobile/mdx_file.dart';
 import '../mobile/phone_diagnostic.dart';
+import '../onedrop/onedrop_watch.dart';
 import 'diagnosis_report.dart';
 
 /// Writes a completed [DiagnosisReport] to
@@ -281,6 +282,11 @@ class DiagnosisReportExport {
 /// One-line headline shared by the export payload and the report UI's
 /// "Top finding" stat card.
 String topFindingFor(DiagnosisReport report) {
+  // OneDrop send/nearby fail is Info-level — it must beat an ANR title.
+  if (isOneDropWatchPackage(report.packageName) &&
+      report.logFindings.isNotEmpty) {
+    return report.logFindings.first;
+  }
   final reason = report.anrReason?.trim();
   if (reason != null && reason.isNotEmpty) return reason;
   if (report.logFindings.isNotEmpty) return report.logFindings.first;

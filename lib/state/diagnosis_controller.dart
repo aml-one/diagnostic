@@ -6,10 +6,12 @@ import '../core/adb/adb_client.dart';
 import '../core/bugreport/anr_trace_parser.dart';
 import '../core/bugreport/bugreport_service.dart';
 import '../core/diagnosis/diagnosis_report.dart';
+import '../core/diagnosis/diagnosis_report_export.dart';
 import '../core/diagnosis/watch_log_summary.dart';
 import '../core/diagnostics/app_log.dart';
 import '../core/logcat/anr_detector.dart';
 import '../core/logcat/logcat_parser.dart';
+import '../core/onedrop/onedrop_watch.dart';
 import '../core/perf/dumpsys_snapshot.dart';
 import '../core/perfetto/perfetto_models.dart';
 import '../core/perfetto/perfetto_service.dart';
@@ -107,15 +109,7 @@ class DiagnosisState {
   String get topFinding {
     final report = this.report;
     if (report == null) return 'No issues found yet';
-    final reason = report.anrReason?.trim();
-    if (reason != null && reason.isNotEmpty) return reason;
-    if (report.logFindings.isNotEmpty) return report.logFindings.first;
-    if (report.perfettoFindings.isNotEmpty) {
-      final sorted = [...report.perfettoFindings]
-        ..sort((a, b) => b.severity.index.compareTo(a.severity.index));
-      return sorted.first.title;
-    }
-    return 'No ANR or jank evidence captured';
+    return topFindingFor(report);
   }
 
   DiagnosisState copyWith({
@@ -219,24 +213,40 @@ class DiagnosisController extends Notifier<DiagnosisState> {
       GfxInfoSnapshot? gfx;
       MemInfoSnapshot? mem;
       CpuInfoSnapshot? cpu;
+      var oneDropRadio = const <String>[];
       if (includeDumpsys && pkg != null) {
+        final oneDrop = isOneDropWatchPackage(pkg);
         _emit(
           state.copyWith(
             step: DiagnosisStep.dumpsys,
-            progressText: 'Capturing dumpsys gfx / mem / cpu…',
+            progressText: oneDrop
+                ? 'Capturing dumpsys gfx / mem / cpu / Wi-Fi…'
+                : 'Capturing dumpsys gfx / mem / cpu…',
           ),
         );
         AppLog.i('diagnose', 'step: dumpsys');
         try {
           final snapshot = DumpsysSnapshot(adb: adb);
-          final results = await Future.wait<Object>([
+          final jobs = <Future<Object>>[
             snapshot.gfxinfo(serial, pkg, cancel: _adbCancel),
             snapshot.meminfo(serial, pkg, cancel: _adbCancel),
             snapshot.cpuinfo(serial, cancel: _adbCancel),
-          ]);
+            if (oneDrop) snapshot.raw(serial, 'wifi', cancel: _adbCancel),
+            if (oneDrop) snapshot.raw(serial, 'wifip2p', cancel: _adbCancel),
+            if (oneDrop)
+              snapshot.raw(serial, 'connectivity', cancel: _adbCancel),
+          ];
+          final results = await Future.wait<Object>(jobs);
           gfx = results[0] as GfxInfoSnapshot;
           mem = results[1] as MemInfoSnapshot;
           cpu = results[2] as CpuInfoSnapshot;
+          if (oneDrop && results.length >= 6) {
+            oneDropRadio = summarizeOneDropRadioDumpsys(
+              wifi: results[3] as String,
+              p2p: results[4] as String,
+              connectivity: results[5] as String,
+            );
+          }
         } on AdbCancelled {
           return;
         } on Object catch (err) {
@@ -328,6 +338,17 @@ class DiagnosisController extends Notifier<DiagnosisState> {
       AppLog.i('diagnose', 'step: assembling');
       final preferredEvent =
           seedEvent ?? (anrEvents.isEmpty ? null : anrEvents.first);
+      WatchLogSummary? watchLogs;
+      if (isOneDropWatchPackage(pkg)) {
+        final buffer =
+            ref.read(logcatSessionProvider.notifier).session?.recentBuffer ??
+            const <LogcatLine>[];
+        watchLogs = summarizeWatchLogs(
+          buffer,
+          leadingFindings: oneDropDiagnosisFindings(buffer),
+          extraFindings: oneDropRadio,
+        );
+      }
       final report = DiagnosisReport.assemble(
         packageName: pkg,
         event: preferredEvent,
@@ -337,6 +358,7 @@ class DiagnosisController extends Notifier<DiagnosisState> {
         mem: mem,
         cpu: cpu,
         perfetto: perfettoResult,
+        watchLogs: watchLogs,
       );
 
       _emit(
@@ -424,11 +446,14 @@ class DiagnosisController extends Notifier<DiagnosisState> {
       MemInfoSnapshot? mem;
       CpuInfoSnapshot? cpu;
       final extraFindings = <String>[];
+      final oneDrop = isOneDropWatchPackage(pkg);
       _emit(
         state.copyWith(
           step: DiagnosisStep.dumpsys,
           progressText: pkg == null
               ? 'Capturing dumpsys cpu…'
+              : oneDrop
+              ? 'Capturing dumpsys gfx / mem / cpu / Wi-Fi…'
               : 'Capturing dumpsys gfx / mem / cpu…',
         ),
       );
@@ -467,6 +492,9 @@ class DiagnosisController extends Notifier<DiagnosisState> {
         if (dumpsysLimited) {
           extraFindings.add(kOnDeviceLighterDiagnosis);
         }
+        if (oneDrop) {
+          extraFindings.addAll(await _oneDropRadioDumpsysOnDevice());
+        }
       } on Object catch (err) {
         AppLog.w('diagnose', 'on-device dumpsys failed', err);
         extraFindings.add(kOnDeviceLighterDiagnosis);
@@ -475,6 +503,9 @@ class DiagnosisController extends Notifier<DiagnosisState> {
 
       final watchLogs = summarizeWatchLogs(
         collected,
+        leadingFindings: oneDrop
+            ? oneDropDiagnosisFindings(collected)
+            : const [],
         extraFindings: extraFindings,
       );
       final anrEvents = _scanLines(
@@ -596,6 +627,26 @@ class DiagnosisController extends Notifier<DiagnosisState> {
     }
     out.sort((a, b) => b.time.compareTo(a.time));
     return out;
+  }
+
+  Future<List<String>> _oneDropRadioDumpsysOnDevice() async {
+    if (_bail()) return const [];
+    try {
+      final results = await Future.wait([
+        deviceBridge.dumpsys('wifi'),
+        deviceBridge.dumpsys('wifip2p'),
+        deviceBridge.dumpsys('connectivity'),
+      ]);
+      if (_bail()) return const [];
+      return summarizeOneDropRadioDumpsys(
+        wifi: results[0],
+        p2p: results[1],
+        connectivity: results[2],
+      );
+    } on Object catch (err) {
+      AppLog.w('diagnose', 'OneDrop radio dumpsys failed', err);
+      return const [];
+    }
   }
 }
 

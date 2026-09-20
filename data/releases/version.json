@@ -1,67 +1,77 @@
 {
   "diagnosticWindows": {
-    "version": "1.0.7",
-    "buildNumber": 10007,
-    "label": "v1.0.7-260919",
-    "file": "diagnostic-windows-x64-v1.0.7-260919.zip",
-    "sizeBytes": 19528753,
-    "sha256": "0fd6673e7df6a8f7e1dc026ba2bc35f4c4df05bd3fbc41d4eb19910a083f6745",
-    "publishedAt": "2026-09-19T07:21:06.3731833Z",
+    "version": "1.0.8",
+    "buildNumber": 10008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-windows-x64-v1.0.8-260920.zip",
+    "sizeBytes": 19532931,
+    "sha256": "71c241265a8d6c93c4fc09f5c1afad81850342c019ac1b55040c8a368d6df032",
+    "publishedAt": "2026-09-20T06:47:38.2152491Z",
     "changelog": [
-      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
-      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
     ]
   },
   "diagnosticLinux": {
-    "version": "1.0.7",
-    "buildNumber": 10007,
-    "label": "v1.0.7-260919",
-    "file": "diagnostic-linux-x64-v1.0.7-260919.deb",
-    "sizeBytes": 14312930,
-    "sha256": "1002b91eefb8414a0db3826ab993b900cb9b41db45d162fbe2435eb4ae8aa1ca",
-    "publishedAt": "2026-09-19T07:21:42.0883467Z",
+    "version": "1.0.8",
+    "buildNumber": 10008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-linux-x64-v1.0.8-260920.deb",
+    "sizeBytes": 14316446,
+    "sha256": "2a9461589eca93deac573e19c1a54812f338d47a944a8533244b1eb572d061e4",
+    "publishedAt": "2026-09-20T06:48:19.5905098Z",
     "changelog": [
-      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
-      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
     ]
   },
   "diagnosticMacos": {
-    "version": "1.0.7",
-    "buildNumber": 10007,
-    "label": "v1.0.7-260919",
-    "file": "diagnostic-macos-silicon-v1.0.7-260919.dmg",
-    "sizeBytes": 15945232,
-    "sha256": "c3a8029df94b738698a48d92f35f62e9f7ab4631a84f1ea9d38ac32b00595da8",
-    "publishedAt": "2026-09-19T07:22:11.3245219Z",
+    "version": "1.0.8",
+    "buildNumber": 10008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-macos-silicon-v1.0.8-260920.dmg",
+    "sizeBytes": 15945914,
+    "sha256": "32ed06b3c0c1dd084c0333dc2fccd62406d24c4cf10262510ccef899ef3232b9",
+    "publishedAt": "2026-09-20T06:48:53.5870520Z",
     "changelog": [
-      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
-      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
     ]
   },
   "diagnosticMacosIntel": {
-    "version": "1.0.7",
-    "buildNumber": 10007,
-    "label": "v1.0.7-260919",
-    "file": "diagnostic-macos-intel-v1.0.7-260919.dmg",
-    "sizeBytes": 17303973,
-    "sha256": "97a53a548ecc027f21b9eda001412b12a92212cdbdabcbb9ed60d81b5e083172",
-    "publishedAt": "2026-09-19T07:22:48.6258845Z",
+    "version": "1.0.8",
+    "buildNumber": 10008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-macos-intel-v1.0.8-260920.dmg",
+    "sizeBytes": 17305208,
+    "sha256": "ab17bd3e4a3fff9f220ca9e95c9e261f83cb2854f6b7a50c20927b4d8a96f710",
+    "publishedAt": "2026-09-20T06:49:32.7670643Z",
     "changelog": [
-      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
-      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
     ]
   },
   "diagnosticAndroid": {
-    "version": "1.0.7",
-    "buildNumber": 22007,
-    "label": "v1.0.7-260919",
-    "file": "diagnostic-android-arm64-v1.0.7-260919.apk",
+    "version": "1.0.8",
+    "buildNumber": 22008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-android-arm64-v1.0.8-260920.apk",
     "sizeBytes": 21493899,
-    "sha256": "cb518fcec378f5c9dbe2a9ecbcbb50b9f0b19b970b9470cda2feabb127f51779",
-    "publishedAt": "2026-09-19T07:20:23.5317872Z",
+    "sha256": "b923f446018c775ac925feac7ee35dff58b36143de899141e8e279a02c6b901d",
+    "publishedAt": "2026-09-20T06:46:48.4698098Z",
     "changelog": [
-      "[feature] Android Watch shows Diagnostic among AmL One World apps only when a self-check finds leftover crash or error logs, and opens a review/send page instead of live Watch",
-      "[bugfix] Android Watch no longer ANRs on a ColorOS log flood (and writes empty 0 kB captures) while recording OneDrop"
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
     ]
   }
 }

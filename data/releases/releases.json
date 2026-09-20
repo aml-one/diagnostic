@@ -1,6 +1,22 @@
 [
   {
     "platform": "diagnosticAndroid",
+    "version": "1.0.8",
+    "buildNumber": 22008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-android-arm64-v1.0.8-260920.apk",
+    "sizeBytes": 21493899,
+    "sha256": "b923f446018c775ac925feac7ee35dff58b36143de899141e8e279a02c6b901d",
+    "publishedAt": "2026-09-20T06:46:48.4698098Z",
+    "changelog": [
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+    ]
+  },
+  {
+    "platform": "diagnosticAndroid",
     "version": "1.0.7",
     "buildNumber": 22007,
     "label": "v1.0.7-260919",
@@ -90,6 +106,70 @@
       "[bugfix] Watch keeps logcat running when you leave Diagnostic, so HyperOS does not ask for device logs again",
       "[bugfix] Watch pauses Live as soon as you drag away from the newest lines",
       "[bugfix] Phone Diagnose dumps live logcat on every run, including Refresh, instead of replaying the frozen Watch snapshot"
+    ]
+  },
+  {
+    "platform": "diagnosticMacosIntel",
+    "version": "1.0.8",
+    "buildNumber": 10008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-macos-intel-v1.0.8-260920.dmg",
+    "sizeBytes": 17305208,
+    "sha256": "ab17bd3e4a3fff9f220ca9e95c9e261f83cb2854f6b7a50c20927b4d8a96f710",
+    "publishedAt": "2026-09-20T06:49:32.7670643Z",
+    "changelog": [
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+    ]
+  },
+  {
+    "platform": "diagnosticMacos",
+    "version": "1.0.8",
+    "buildNumber": 10008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-macos-silicon-v1.0.8-260920.dmg",
+    "sizeBytes": 15945914,
+    "sha256": "32ed06b3c0c1dd084c0333dc2fccd62406d24c4cf10262510ccef899ef3232b9",
+    "publishedAt": "2026-09-20T06:48:53.5870520Z",
+    "changelog": [
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+    ]
+  },
+  {
+    "platform": "diagnosticLinux",
+    "version": "1.0.8",
+    "buildNumber": 10008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-linux-x64-v1.0.8-260920.deb",
+    "sizeBytes": 14316446,
+    "sha256": "2a9461589eca93deac573e19c1a54812f338d47a944a8533244b1eb572d061e4",
+    "publishedAt": "2026-09-20T06:48:19.5905098Z",
+    "changelog": [
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
+    ]
+  },
+  {
+    "platform": "diagnosticWindows",
+    "version": "1.0.8",
+    "buildNumber": 10008,
+    "label": "v1.0.8-260920",
+    "file": "diagnostic-windows-x64-v1.0.8-260920.zip",
+    "sizeBytes": 19532931,
+    "sha256": "71c241265a8d6c93c4fc09f5c1afad81850342c019ac1b55040c8a368d6df032",
+    "publishedAt": "2026-09-20T06:47:38.2152491Z",
+    "changelog": [
+      "[feature] OneDrop Diagnose now explains send and nearby failures, not only ANR and jank",
+      "[improvement] Hide the HyperOS battery note on Fire tablets and other non-Xiaomi devices",
+      "[improvement] Phone Watch shows the OneDrop nearby and transfer panel while watching that app",
+      "[bugfix] Unlock Watch now notices a live Desktop grant without tapping Check again"
     ]
   },
   {

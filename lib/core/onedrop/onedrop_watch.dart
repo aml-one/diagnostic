@@ -446,3 +446,32 @@ String explainOneDropFailure(String message) {
   }
   return message;
 }
+
+/// Diagnose headlines from OneDrop Watch tags — fail first, then phone /
+/// transfer / nearby. Info-level send lines never show up in error counts.
+List<String> oneDropDiagnosisFindings(Iterable<LogcatLine> lines) {
+  final tracker = OneDropWatchTracker();
+  var saw = false;
+  for (final line in lines) {
+    if (tracker.ingest(line)) saw = true;
+  }
+  if (!saw) {
+    return const [
+      'No OneDrop nearby or send lines in this capture. Open OneDrop, try a send, then Diagnose again.',
+    ];
+  }
+  final snap = tracker.snapshot();
+  final out = <String>[];
+  final fail = snap.fail;
+  if (fail != null && fail.isNotEmpty) out.add(fail);
+  out.add('OneDrop: ${snap.phone}');
+  out.add('Transfer: ${snap.transfer}');
+  if (snap.peers.isEmpty) {
+    out.add('Nearby: none — waiting for Wi-Fi or Bluetooth sightings.');
+  } else {
+    out.add(
+      'Nearby: ${snap.peers.map((p) => '${p.name} (${p.via})').join(' · ')}',
+    );
+  }
+  return out;
+}

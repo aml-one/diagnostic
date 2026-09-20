@@ -142,4 +142,26 @@ CPU usage from 100ms to 200ms ago:
       isNull,
     );
   });
+
+  test('OneDrop radio dumpsys is a short finding, not the raw dump', () {
+    final findings = summarizeOneDropRadioDumpsys(
+      wifi: 'Wi-Fi is enabled\nSSID: "HomeLan"\n',
+      p2p: 'mGroup: null\n',
+      connectivity: 'type: MOBILE\ncellular connected\n',
+    );
+    expect(findings.first, contains('HomeLan'));
+    expect(findings, contains('No Wi-Fi Direct group.'));
+    expect(findings.last, contains('mobile data'));
+  });
+
+  test('OneDrop radio dumpsys skips Permission Denial', () {
+    expect(
+      summarizeOneDropRadioDumpsys(
+        wifi: "Permission Denial: can't dump wifi",
+        p2p: '',
+        connectivity: '',
+      ),
+      ['Wi-Fi dumpsys was denied on this device.'],
+    );
+  });
 }

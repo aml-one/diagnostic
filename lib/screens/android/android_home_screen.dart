@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:aml_ui/aml_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,7 +28,9 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
   List<PhoneInstalledApp> _apps = const [];
   DiagnosticSelfCheck _selfCheck = DiagnosticSelfCheck.empty;
   var _loading = true;
+  var _reloadBusy = false;
   String? _error;
+  Timer? _grantPoll;
   final _query = TextEditingController();
 
   @override
@@ -41,6 +45,7 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
 
   @override
   void dispose() {
+    _grantPoll?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _query.dispose();
     super.dispose();
@@ -55,6 +60,8 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
   }
 
   Future<void> _reload({bool soft = false}) async {
+    if (_reloadBusy) return;
+    _reloadBusy = true;
     if (!soft) {
       setState(() {
         _loading = true;
@@ -85,13 +92,29 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
         _selfCheck = selfCheck;
         _loading = false;
       });
+      _syncGrantPoll();
     } catch (err) {
       if (!mounted) return;
       setState(() {
         _error = '$err';
         _loading = false;
       });
+      _syncGrantPoll();
+    } finally {
+      _reloadBusy = false;
     }
+  }
+
+  void _syncGrantPoll() {
+    final waiting = !_loading && (_perms == null || !_perms!.readLogs);
+    if (!waiting) {
+      _grantPoll?.cancel();
+      _grantPoll = null;
+      return;
+    }
+    _grantPoll ??= Timer.periodic(const Duration(seconds: 2), (_) {
+      _reload(soft: true);
+    });
   }
 
   void _openSettings() {
@@ -124,6 +147,7 @@ class _AndroidHomeScreenState extends State<AndroidHomeScreen>
     if (perms == null || !perms.readLogs) {
       return _GrantGate(
         error: _error,
+        xiaomi: perms?.xiaomi == true,
         onSettings: _openSettings,
         onPermissions: () {
           Navigator.of(context).push(
@@ -187,12 +211,14 @@ class _GrantGate extends StatelessWidget {
     required this.onPermissions,
     required this.onRefresh,
     required this.onSettings,
+    this.xiaomi = false,
     this.error,
   });
 
   final VoidCallback onPermissions;
   final VoidCallback onRefresh;
   final VoidCallback onSettings;
+  final bool xiaomi;
   final String? error;
 
   static const _panelRadius = BorderRadius.all(Radius.circular(28));
@@ -289,7 +315,7 @@ class _GrantGate extends StatelessWidget {
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
-                                          'One tap on the PC. Watch stays closed until Desktop Diagnostic grants live logcat.',
+                                          'One tap on the PC. This page opens Watch when Desktop Diagnostic grants live logcat.',
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                             fontSize: 14.5,
@@ -325,46 +351,50 @@ class _GrantGate extends StatelessWidget {
                                           subtitle:
                                               'On this phone’s card. It lasts until you uninstall.',
                                         ),
-                                        const SizedBox(height: 12),
-                                        DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            color: AmlTheme.amber.withValues(
-                                              alpha: dark ? 0.16 : 0.2,
+                                        if (xiaomi) ...[
+                                          const SizedBox(height: 12),
+                                          DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: AmlTheme.amber.withValues(
+                                                alpha: dark ? 0.16 : 0.2,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
                                             ),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.fromLTRB(
-                                              12,
-                                              10,
-                                              12,
-                                              10,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                settingsPastelIcon(
-                                                  Icons.battery_charging_full_rounded,
-                                                  'battery',
-                                                  dimension: 36,
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Text(
-                                                    'HyperOS: set unrestricted battery and Autostart so Watch survives the game.',
-                                                    style: TextStyle(
-                                                      fontSize: 12.5,
-                                                      height: 1.35,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: ink,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                12,
+                                                10,
+                                                12,
+                                                10,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  settingsPastelIcon(
+                                                    Icons
+                                                        .battery_charging_full_rounded,
+                                                    'battery',
+                                                    dimension: 36,
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'HyperOS: set unrestricted battery and Autostart so Watch survives the game.',
+                                                      style: TextStyle(
+                                                        fontSize: 12.5,
+                                                        height: 1.35,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: ink,
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
+                                        ],
                                         if (error != null) ...[
                                           const SizedBox(height: 10),
                                           Text(

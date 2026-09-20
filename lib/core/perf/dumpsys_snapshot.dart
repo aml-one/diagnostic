@@ -97,6 +97,14 @@ class DumpsysSnapshot {
     final out = await _adb.shell(serial, 'dumpsys cpuinfo', cancel: cancel);
     return parseCpuInfo(out);
   }
+
+  Future<String> raw(
+    String serial,
+    String service, {
+    AdbCancelToken? cancel,
+  }) {
+    return _adb.shell(serial, 'dumpsys $service', cancel: cancel);
+  }
 }
 
 const _excerptCap = 4000;
@@ -191,6 +199,116 @@ bool dumpsysLooksDenied(String stdout) {
       text.contains("can't dump") ||
       text.contains('cannot dump') ||
       text.contains('security exception');
+}
+
+/// Short Wi-Fi / P2P / connectivity notes for OneDrop Diagnose. Skips
+/// denied dumpsys. Never returns the raw dump.
+List<String> summarizeOneDropRadioDumpsys({
+  required String wifi,
+  required String p2p,
+  required String connectivity,
+}) {
+  final out = <String>[];
+  void add(String? finding) {
+    if (finding == null || finding.isEmpty) return;
+    if (out.contains(finding)) return;
+    out.add(finding);
+  }
+
+  add(_radioDumpFinding('Wi-Fi', wifi, _wifiRadioFinding));
+  add(_radioDumpFinding('Wi-Fi Direct', p2p, _p2pRadioFinding));
+  add(_radioDumpFinding('Connectivity', connectivity, _connectivityRadioFinding));
+  if (out.length <= 4) return out;
+  return out.sublist(0, 4);
+}
+
+String? _radioDumpFinding(
+  String label,
+  String raw,
+  String? Function(String) parse,
+) {
+  final text = raw.trim();
+  if (text.isEmpty) return null;
+  if (dumpsysLooksDenied(text)) {
+    return '$label dumpsys was denied on this device.';
+  }
+  return parse(_clipForScan(text));
+}
+
+String _clipForScan(String raw, [int max = 80000]) {
+  if (raw.length <= max) return raw;
+  return raw.substring(0, max);
+}
+
+String? _wifiRadioFinding(String raw) {
+  final low = raw.toLowerCase();
+  if (low.contains('wifi is disabled') ||
+      RegExp(r'wifi.?enabled\s*[:=]\s*false', caseSensitive: false)
+          .hasMatch(raw)) {
+    return 'Wi-Fi is off — LAN OneDrop cannot announce.';
+  }
+  final ssid = RegExp(r'SSID:\s*"([^"]+)"').firstMatch(raw) ??
+      RegExp(r'SSID:\s*(\S+)').firstMatch(raw);
+  if (ssid != null) {
+    final name = ssid.group(1)!.trim();
+    if (name.isNotEmpty &&
+        name != '<unknown ssid>' &&
+        name != '0x' &&
+        name.toLowerCase() != 'null') {
+      return 'Wi-Fi connected as $name.';
+    }
+  }
+  if (low.contains('wifi is enabled') ||
+      RegExp(r'wifi.?enabled\s*[:=]\s*true', caseSensitive: false)
+          .hasMatch(raw)) {
+    return 'Wi-Fi is on.';
+  }
+  return null;
+}
+
+String? _p2pRadioFinding(String raw) {
+  final low = raw.toLowerCase();
+  if (low.contains('wifi p2p is disabled') ||
+      low.contains('p2p is disabled')) {
+    return 'Wi-Fi Direct is off.';
+  }
+  if (low.contains('group formed: true') ||
+      low.contains('groupformed: true') ||
+      (low.contains('wifi_p2p') && low.contains('connected'))) {
+    return 'Wi-Fi Direct group is up.';
+  }
+  if (low.contains('no group') ||
+      low.contains('group: null') ||
+      low.contains('mgroup: null')) {
+    return 'No Wi-Fi Direct group.';
+  }
+  return null;
+}
+
+String? _connectivityRadioFinding(String raw) {
+  final low = raw.toLowerCase();
+  if (RegExp(r'airplane.?mode[^:\n]{0,24}[:=]\s*(true|1|on)\b',
+          caseSensitive: false)
+      .hasMatch(raw)) {
+    return 'Airplane mode is on.';
+  }
+  if (low.contains('no default network') ||
+      low.contains('no active network') ||
+      low.contains('active network: none')) {
+    return 'No active network.';
+  }
+  if (RegExp(r'\btype:\s*WIFI\b', caseSensitive: false).hasMatch(raw) ||
+      low.contains('active network is wifi') ||
+      (low.contains('networkcapabilities') && low.contains('wifi'))) {
+    if (low.contains('validated') || low.contains('connected')) {
+      return 'Active network is Wi-Fi.';
+    }
+  }
+  if (RegExp(r'\btype:\s*MOBILE\b', caseSensitive: false).hasMatch(raw) ||
+      low.contains('cellular') && low.contains('connected')) {
+    return 'Active network is mobile data — LAN OneDrop needs Wi-Fi.';
+  }
+  return null;
 }
 
 String? dumpsysGfxSummary(GfxInfoSnapshot? gfx) {

@@ -7,8 +7,10 @@ import '../../core/logcat/logcat_parser.dart';
 import '../../core/mobile/device_bridge.dart';
 import '../../core/mobile/phone_diagnostic.dart';
 import '../../core/mobile/watch_follow.dart';
+import '../../core/onedrop/onedrop_watch.dart';
 import '../../theme/desktop_theme.dart';
 import '../../widgets/logcat_row.dart';
+import '../../widgets/onedrop_watch_panel.dart';
 import '../diagnose_screen.dart';
 import 'mdx_share_sheet.dart';
 
@@ -49,6 +51,7 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
   StreamSubscription<Map<Object?, Object?>>? _sub;
   Timer? _pidTimer;
   Timer? _uiTimer;
+  OneDropWatchTracker? _dropWatch;
 
   String get _packageName => widget.app?.packageName ?? '';
 
@@ -61,6 +64,9 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
   @override
   void initState() {
     super.initState();
+    if (isOneDropWatchPackage(_packageName)) {
+      _dropWatch = OneDropWatchTracker();
+    }
     _start();
   }
 
@@ -224,16 +230,18 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
     final rawLines = event['lines'];
     if (rawLines is! List) return;
     var added = 0;
+    var dropDirty = false;
     for (final item in rawLines) {
       final parsed = LogcatParser.parse('$item');
       if (!_pidGate.accept(parsed)) continue;
+      if (_dropWatch?.ingest(parsed) == true) dropDirty = true;
       if (!passesLogcatLevelFilter(parsed, _levels)) continue;
       if (_hideSpam && isLogcatDisplayNoise(parsed)) continue;
       _lines.add(parsed);
       added++;
     }
-    if (added == 0) return;
-    if (!_followTail) {
+    if (added == 0 && !dropDirty) return;
+    if (added > 0 && !_followTail) {
       _pendingNew += added;
     }
     _scheduleUi();
@@ -394,6 +402,13 @@ class _AndroidWatchScreenState extends State<AndroidWatchScreen> {
                     onResumeLive: _resumeLive,
                   ),
                 ),
+                if (_dropWatch != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: OneDropWatchPanel(
+                      snapshot: _dropWatch!.snapshot(),
+                    ),
+                  ),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),

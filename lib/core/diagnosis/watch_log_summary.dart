@@ -59,9 +59,12 @@ List<LogcatLine> mergeWatchLogLines(
 }
 
 /// Scan every Watch line — not only the last two minutes of ANR traces.
+/// [leadingFindings] (OneDrop send/nearby) sit above crash/error counts so
+/// a send failure is the Diagnose headline, not ColorOS spam.
 WatchLogSummary summarizeWatchLogs(
   List<LogcatLine> lines, {
   List<String> extraFindings = const [],
+  List<String> leadingFindings = const [],
 }) {
   if (lines.isEmpty) {
     return WatchLogSummary(
@@ -70,7 +73,9 @@ WatchLogSummary summarizeWatchLogs(
       warningCount: 0,
       fatalCount: 0,
       findings: [
-        'Watch has no log lines yet. Keep the app on screen, then Diagnose again.',
+        ...leadingFindings,
+        if (leadingFindings.isEmpty)
+          'Watch has no log lines yet. Keep the app on screen, then Diagnose again.',
         ...extraFindings,
       ],
       highlights: [],
@@ -112,7 +117,7 @@ WatchLogSummary summarizeWatchLogs(
   ];
 
   final loud = topTags.isEmpty ? '' : ', mostly ${topTags.first.tag}';
-  final findings = <String>[];
+  final findings = <String>[...leadingFindings];
   if (crashLine != null) findings.add(crashLine);
   if (errors > 0) {
     findings.add('$errors error${errors == 1 ? '' : 's'}$loud');

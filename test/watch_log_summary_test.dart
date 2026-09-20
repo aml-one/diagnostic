@@ -83,6 +83,18 @@ void main() {
     expect(summary.findings.last, kOnDeviceLighterDiagnosis);
   });
 
+  test('OneDrop leading findings beat error counts as the headline', () {
+    final summary = summarizeWatchLogs(
+      [
+        _line(level: 'E', tag: 'DisplayBase', message: 'drop'),
+        _line(level: 'I', message: 'ok'),
+      ],
+      leadingFindings: const ['Send failed: hotspot'],
+    );
+    expect(summary.headline, 'Send failed: hotspot');
+    expect(summary.findings, contains('1 error, mostly DisplayBase'));
+  });
+
   test('elapsed label keeps milliseconds', () {
     expect(
       formatDiagnosisElapsed(const Duration(milliseconds: 134)),
